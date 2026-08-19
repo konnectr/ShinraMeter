@@ -508,33 +508,34 @@
                     </Style.Triggers>
                 </Style>
             </Grid.Style>
-            <wpf:CartesianChart XAxes="{Binding GraphData.XAxes}"
-                                YAxes="{Binding GraphData.YAxes}"
-                                Series="{Binding GraphData.DpsSeries}"
-                                Sections="{Binding GraphData.EnrageSections}"
-                                Height="140"
-                                Width="{Binding ActualWidth, ElementName=GraphContainer}"
-                                HorizontalAlignment="Stretch"
-                                VerticalAlignment="Stretch"
-                                ZoomMode="X"
-                                Margin="0">
-                <wpf:CartesianChart.Style>
-                    <Style TargetType="wpf:CartesianChart">
-                        <Setter Property="AnimationsSpeed" Value="0"/>
-                        <Style.Triggers>
-                            <DataTrigger Binding="{Binding GraphData.IsAnimated}" Value="True">
-                                <Setter Property="AnimationsSpeed" Value="0:0:0.5"/>
-                            </DataTrigger>
-                        </Style.Triggers>
-                    </Style>
-                </wpf:CartesianChart.Style>
-                <wpf:CartesianChart.Tooltip>
-                    <ui:RealtimeChartTooltip/>
-                </wpf:CartesianChart.Tooltip>
-                <wpf:CartesianChart.DrawMargin>
-                    <measure:Margin Bottom="0" Right="0" Left="0" Top="0"/>
-                </wpf:CartesianChart.DrawMargin>
-            </wpf:CartesianChart>
+            <!--Canvas host: keeps the chart width (bound to this container) out of the container's measure-->
+            <Canvas ClipToBounds="True">
+                <wpf:CartesianChart XAxes="{Binding GraphData.XAxes}"
+                                    YAxes="{Binding GraphData.YAxes}"
+                                    Series="{Binding GraphData.DpsSeries}"
+                                    Sections="{Binding GraphData.EnrageSections}"
+                                    Height="140"
+                                    Width="{Binding ActualWidth, ElementName=GraphContainer}"
+                                    ZoomMode="X"
+                                    Margin="0">
+                    <wpf:CartesianChart.Style>
+                        <Style TargetType="wpf:CartesianChart">
+                            <Setter Property="AnimationsSpeed" Value="0"/>
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding GraphData.IsAnimated}" Value="True">
+                                    <Setter Property="AnimationsSpeed" Value="0:0:0.5"/>
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </wpf:CartesianChart.Style>
+                    <wpf:CartesianChart.Tooltip>
+                        <ui:RealtimeChartTooltip/>
+                    </wpf:CartesianChart.Tooltip>
+                    <wpf:CartesianChart.DrawMargin>
+                        <measure:Margin Bottom="0" Right="0" Left="0" Top="0"/>
+                    </wpf:CartesianChart.DrawMargin>
+                </wpf:CartesianChart>
+            </Canvas>
         </Grid>
 
         <!--Footer-->

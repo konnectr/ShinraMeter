@@ -24,40 +24,36 @@
 
     <Grid Focusable="False" HorizontalAlignment="Stretch"  VerticalAlignment="Stretch" >
 
-        <!--DpsBar-->
-        <Border x:Name="DpsIndicator"
-                Focusable="False"
-                Opacity="1"
-                HorizontalAlignment="Left" VerticalAlignment="Stretch"
-                Height="Auto" Width="Auto">
-            <Border.Background>
-                <LinearGradientBrush EndPoint="0 1">
-                    <GradientStop Color="{Binding Role, Converter={converters:RoleToColorConverter Opacity=0}}" />
-                    <GradientStop Color="{Binding Role, Converter={converters:RoleToColorConverter Opacity=.2}}"
-                                  Offset="1" />
-                </LinearGradientBrush>
-            </Border.Background>
-            <Border.BorderBrush>
-                <LinearGradientBrush EndPoint="0 1">
-                    <GradientStop Color="{Binding Role, Converter={converters:RoleToColorConverter Opacity=0}}"
-                                  Offset=".6" />
-                    <GradientStop Color="{Binding Role, Converter={converters:RoleToColorConverter Opacity=.9}}"
-                                  Offset="1" />
-                </LinearGradientBrush>
-            </Border.BorderBrush>
-            <Grid>
-                <Border x:Name="IndicatorGovernor"
-                        HorizontalAlignment="Left"
-                        Width="{Binding ActualWidth, RelativeSource={RelativeSource Mode=FindAncestor, AncestorType=l:PlayerStatsControl}}">
-                    <Border.LayoutTransform>
-                        <ScaleTransform ScaleX="0" />
-                    </Border.LayoutTransform>
-                </Border>
+        <!--DpsBar: hosted in a Canvas so the bar width never feeds back into the row measure-->
+        <Canvas Focusable="False" ClipToBounds="True">
+            <Border x:Name="DpsIndicator"
+                    Focusable="False"
+                    Opacity="1"
+                    Width="{Binding ActualWidth, RelativeSource={RelativeSource Mode=FindAncestor, AncestorType=l:PlayerStatsControl}}"
+                    Height="{Binding ActualHeight, RelativeSource={RelativeSource Mode=FindAncestor, AncestorType=l:PlayerStatsControl}}">
+                <Border.RenderTransform>
+                    <ScaleTransform ScaleX="0" />
+                </Border.RenderTransform>
+                <Border.Background>
+                    <LinearGradientBrush EndPoint="0 1">
+                        <GradientStop Color="{Binding Role, Converter={converters:RoleToColorConverter Opacity=0}}" />
+                        <GradientStop Color="{Binding Role, Converter={converters:RoleToColorConverter Opacity=.2}}"
+                                      Offset="1" />
+                    </LinearGradientBrush>
+                </Border.Background>
+                <Border.BorderBrush>
+                    <LinearGradientBrush EndPoint="0 1">
+                        <GradientStop Color="{Binding Role, Converter={converters:RoleToColorConverter Opacity=0}}"
+                                      Offset=".6" />
+                        <GradientStop Color="{Binding Role, Converter={converters:RoleToColorConverter Opacity=.9}}"
+                                      Offset="1" />
+                    </LinearGradientBrush>
+                </Border.BorderBrush>
                 <Border Background="{Binding Role, Converter={converters:RoleToColorConverter}}"
                         VerticalAlignment="Bottom"
                         Height="1" />
-            </Grid>
-        </Border>
+            </Border>
+        </Canvas>
 
         <!--  D -> [ icon | name | dmg% | dps (+ trend?) | crit% | dmg | dmgt | dpst | deaths | floortime ] -->
         <!--  T -> [ icon | name |   "  |       "        |   "   | dmg | dmgt | dpst | deaths | floortime | aggro% | enrage casts? ] -->

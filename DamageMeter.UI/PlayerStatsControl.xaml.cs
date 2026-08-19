@@ -44,7 +44,7 @@ namespace DamageMeter.UI
             {
                 _animation.To = factor;
                 _animation.Duration = TimeSpan.FromSeconds(0.1);
-                IndicatorGovernor.LayoutTransform.BeginAnimation(ScaleTransform.ScaleXProperty, _animation);
+                DpsIndicator.RenderTransform.BeginAnimation(ScaleTransform.ScaleXProperty, _animation);
             });
 
         }
