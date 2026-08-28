@@ -99,6 +99,7 @@ namespace DamageMeter.Sniffing
         private bool _enabled;
         private readonly string _socketHost;
         private readonly int _socketPort;
+        private readonly bool _scanLocalMirrorPorts;
         private CancellationTokenSource _socketCts;
         private Task _socketTask;
 
@@ -145,12 +146,42 @@ namespace DamageMeter.Sniffing
         {
             _socketHost = "127.0.0.1";
             _socketPort = 7803;
+            _scanLocalMirrorPorts = true;
         }
 
         public TeraSniffer(string socketHost, int socketPort)
         {
             _socketHost = socketHost;
             _socketPort = socketPort;
+            _scanLocalMirrorPorts = false;
+        }
+
+        private async Task<TcpClient> ConnectToMirrorAsync()
+        {
+            if (!_scanLocalMirrorPorts)
+            {
+                var configuredClient = new TcpClient();
+                await configuredClient.ConnectAsync(_socketHost, _socketPort);
+                return configuredClient;
+            }
+
+            SocketException lastError = null;
+            for (var port = 7803; port <= 8002; port++)
+            {
+                var candidate = new TcpClient();
+                try
+                {
+                    await candidate.ConnectAsync(_socketHost, port);
+                    return candidate;
+                }
+                catch (SocketException error)
+                {
+                    lastError = error;
+                    candidate.Close();
+                }
+            }
+
+            throw lastError ?? new SocketException((int)SocketError.ConnectionRefused);
         }
 
         public override void CleanupForcefully()
@@ -195,8 +226,7 @@ namespace DamageMeter.Sniffing
                 TcpClient client = null;
                 try
                 {
-                    client = new TcpClient();
-                    await client.ConnectAsync(_socketHost, _socketPort);
+                    client = await ConnectToMirrorAsync();
                     Connected = true;
                     var stream = client.GetStream();
 
