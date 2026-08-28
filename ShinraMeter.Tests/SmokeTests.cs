@@ -77,9 +77,10 @@ public class SmokeTests
         );
 
         Assert.Contains("_socketHost = \"127.0.0.1\"", source);
-        Assert.Contains("ConnectToMirrorAsync()", source);
-        Assert.Contains("for (var port = 7803; port <= 8002; port++)", source);
-        Assert.Contains("ConnectAsync(_socketHost, port)", source);
+        Assert.Contains("ConnectToMirrorAsync(CancellationToken token)", source);
+        Assert.Contains("for (var port = 7804; port <= 8002; port++)", source);
+        Assert.Contains("TryConnectToMirrorPortAsync(7803, token)", source);
+        Assert.Contains("Task.WhenAny(connectTask, Task.Delay(MirrorConnectTimeoutMs, token))", source);
         Assert.Contains("if (direction == 1)", source);
         Assert.Contains("else if (direction == 2)", source);
         Assert.DoesNotContain("new TcpSniffer(_ipSniffer)", source);

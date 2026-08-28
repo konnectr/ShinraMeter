@@ -100,6 +100,8 @@ namespace DamageMeter.Sniffing
         private readonly string _socketHost;
         private readonly int _socketPort;
         private readonly bool _scanLocalMirrorPorts;
+        private const int MirrorConnectTimeoutMs = 30;
+        private const int PreferredMirrorProbeInterval = 16;
         private CancellationTokenSource _socketCts;
         private Task _socketTask;
 
@@ -156,7 +158,32 @@ namespace DamageMeter.Sniffing
             _scanLocalMirrorPorts = false;
         }
 
-        private async Task<TcpClient> ConnectToMirrorAsync()
+        private async Task<TcpClient> TryConnectToMirrorPortAsync(int port, CancellationToken token)
+        {
+            var candidate = new TcpClient();
+            var connectTask = candidate.ConnectAsync(_socketHost, port);
+            var completed = await Task.WhenAny(connectTask, Task.Delay(MirrorConnectTimeoutMs, token));
+            if (completed != connectTask)
+            {
+                candidate.Close();
+                token.ThrowIfCancellationRequested();
+                try { await connectTask; } catch { }
+                return null;
+            }
+
+            try
+            {
+                await connectTask;
+                return candidate;
+            }
+            catch (SocketException)
+            {
+                candidate.Close();
+                return null;
+            }
+        }
+
+        private async Task<TcpClient> ConnectToMirrorAsync(CancellationToken token)
         {
             if (!_scanLocalMirrorPorts)
             {
@@ -165,23 +192,24 @@ namespace DamageMeter.Sniffing
                 return configuredClient;
             }
 
-            SocketException lastError = null;
-            for (var port = 7803; port <= 8002; port++)
+            // Noctenium normally binds 7803 shortly after TERA starts. The old
+            // unbounded sequential scan could spend minutes waiting on reserved
+            // Windows ports before trying 7803 again, forcing Shinra to depend on
+            // a reconstructed handshake backlog. Keep probing the preferred port
+            // during the bounded fallback scan so attachment happens promptly.
+            for (var port = 7804; port <= 8002; port++)
             {
-                var candidate = new TcpClient();
-                try
+                if ((port - 7804) % PreferredMirrorProbeInterval == 0)
                 {
-                    await candidate.ConnectAsync(_socketHost, port);
-                    return candidate;
+                    var preferred = await TryConnectToMirrorPortAsync(7803, token);
+                    if (preferred != null) { return preferred; }
                 }
-                catch (SocketException error)
-                {
-                    lastError = error;
-                    candidate.Close();
-                }
+
+                var candidate = await TryConnectToMirrorPortAsync(port, token);
+                if (candidate != null) { return candidate; }
             }
 
-            throw lastError ?? new SocketException((int)SocketError.ConnectionRefused);
+            throw new SocketException((int)SocketError.ConnectionRefused);
         }
 
         public override void CleanupForcefully()
@@ -226,7 +254,7 @@ namespace DamageMeter.Sniffing
                 TcpClient client = null;
                 try
                 {
-                    client = await ConnectToMirrorAsync();
+                    client = await ConnectToMirrorAsync(token);
                     Connected = true;
                     var stream = client.GetStream();
 
