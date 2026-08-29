@@ -62,6 +62,43 @@ public class SmokeTests
     }
 
     [Fact]
+    public void CrestInfo_TruncatedMirrorFrame_IsIgnoredInsteadOfCrashingPacketLoop()
+    {
+        var opcodeNamer = new OpCodeNamer(new Dictionary<ushort, string>
+        {
+            { 3, "S_CREST_INFO" },
+        });
+        var factory = new MessageFactory(opcodeNamer, "EUC", 387400);
+        var message = new Message(
+            DateTime.UtcNow,
+            MessageDirection.ServerToClient,
+            new ArraySegment<byte>(BuildCrestInfoPacket(opcode: 3, includeGlyph: false))
+        );
+
+        Assert.IsType<UnknownMessage>(factory.Create(message));
+    }
+
+    [Fact]
+    public void CrestInfo_ValidClassicPlusFrame_StillParsesGlyphs()
+    {
+        var opcodeNamer = new OpCodeNamer(new Dictionary<ushort, string>
+        {
+            { 3, "S_CREST_INFO" },
+        });
+        var factory = new MessageFactory(opcodeNamer, "EUC", 387400);
+        var message = new Message(
+            DateTime.UtcNow,
+            MessageDirection.ServerToClient,
+            new ArraySegment<byte>(BuildCrestInfoPacket(opcode: 3, includeGlyph: true))
+        );
+
+        var parsed = Assert.IsType<S_CREST_INFO>(factory.Create(message));
+        Assert.Equal((uint)55, parsed.PointsMax);
+        Assert.Equal((uint)10, parsed.PointsUsed);
+        Assert.True(parsed.Glyphs[123456]);
+    }
+
+    [Fact]
     public void TeraSniffer_UsesMirrorSocketPath_NotPacketSnifferPath()
     {
         var source = File.ReadAllText(
@@ -537,6 +574,27 @@ public class SmokeTests
         writer.Write(new byte[11]);
         writer.Write(language);
         writer.Write(fallbackVersion);
+
+        writer.Flush();
+        return ms.ToArray();
+    }
+
+    private static byte[] BuildCrestInfoPacket(ushort opcode, bool includeGlyph)
+    {
+        using var ms = new MemoryStream();
+        using var writer = new BinaryWriter(ms);
+
+        writer.Write(opcode);
+        writer.Write((ushort)1); // count
+        writer.Write((ushort)16); // entry offset includes TERA size/opcode header
+        writer.Write((uint)55); // points max
+        writer.Write((uint)10); // points used
+        if (includeGlyph)
+        {
+            writer.Write((uint)0); // current/next member offsets
+            writer.Write((uint)123456); // glyph id
+            writer.Write((byte)1); // enabled
+        }
 
         writer.Flush();
         return ms.ToArray();
