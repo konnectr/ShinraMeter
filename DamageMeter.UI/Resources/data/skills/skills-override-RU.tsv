@@ -7,7 +7,7 @@
 51016	Common	Common	Gunner	Заградительный огонь X!	False		icon_skills.gatlingshot_tex
 51026	Common	Common	Gunner	Лучевой заградительный огонь!	False		icon_skills.gatlingshot_awaken_tex
 51036	Common	Common	Gunner	Лучевой заградительный огонь!	False		icon_skills.gatlingshot_awaken_tex
-61122	Common	Common	Gunner	Часовая бомба XI!	False	Boom	icon_skills.timebombshot_tex
+61122	Common	Common	Gunner	Часовая бомба XI	False	Boom	icon_skills.timebombshot_tex
 71121	Common	Common	Gunner	Разрывной снаряд!	False	Boom	icon_skills.arcaneshockshot01_tex
 71122	Common	Common	Gunner	Разрывной снаряд!	False	Boom	icon_skills.arcaneshockshot01_tex
 410131	Common	Common	Warrior	Режущий удар!	False	hit 2	icon_skills.tumblingattack_tex
