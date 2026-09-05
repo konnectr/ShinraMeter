@@ -8,6 +8,7 @@
 116	1003	Airship	1203	Jump	icon_skills.vehicleex_getoff_tex
 116	4000	Siege Cannon	1101	Fire Salvo	icon_skills.vehicleex_att01_tex
 116	4000	Siege Cannon	1102	Fire Salvo	icon_skills.vehicleex_att01_tex
+116	4000	Siege Cannon	1150	Fire Salvo	icon_skills.vehicleex_att01_tex
 116	4000	Siege Cannon	1201	Dismount	icon_skills.vehicleex_getoff_tex
 116	4001	Siege Cannon	1301	Fire Salvo	icon_skills.vehicleex_att01_tex
 116	4001	Siege Cannon	1302	Fire Salvo	icon_skills.vehicleex_att01_tex
@@ -24,6 +25,7 @@
 117	5000		1105	Major Tantrum	icon_skills.kumas_energy_tex
 117	5000		1111	Big Belch	icon_skills.kumas_breath_tex
 117	5000		1212	Jump Back	icon_skills.kumas_backjump_tex
+117	5000		1299	Jump Back	icon_skills.kumas_backjump_tex
 117	5000		1318	Flying Fists	icon_skills.kumas_rocketpunch_tex
 117	5000		2201	Purify Kumas	icon_skills.purify_tex
 117	5000		2202	Heal Kumas	icon_skills.healarea_tex
@@ -36,10 +38,14 @@
 117	6000		1311	Belly-Roll	icon_skills.kumas_frontroll_tex
 117	6000		2201	Purify Kumas	icon_skills.purify_tex
 117	7000		1103	Spank	icon_skills.kumas_3combo_tex
+117	7000		1111	Spank	icon_skills.kumas_3combo_tex
 117	7000		1212	Backstep	icon_skills.kumas_backjump_tex
+117	7000		1299	Backstep	icon_skills.kumas_backjump_tex
+117	7000		6009	Backstep	icon_skills.kumas_backjump_tex
 118	5000	Kumas Boss	1103	Rage-Toddle	icon_skills.kw_atk1_tex
 118	5000	Kumas Boss	3101	Romper-Stomper	icon_skills.kw_stomp_tex
 118	5000	Kumas Boss	3110	Hush!	icon_skills.kw_breath_tex
+118	5000	Kumas Boss	3111	Hush!	icon_skills.kw_breath_tex
 118	5000	Kumas Boss	4110	Stink-Eye	icon_skills.kw_flashcannon_tex
 118	5000	Kumas Boss	4170	Rage-Waddle	icon_skills.kw_dashattack_tex
 118	5000	Kumas Boss	4180	Rage-Flop	icon_skills.kw_leapattack_tex
@@ -55,6 +61,7 @@
 118	8000	Kumas Boss	1103	Rage-Toddle	icon_skills.kw_atk1_tex
 118	8000	Kumas Boss	3101	Romper-Stomper	icon_skills.kw_stomp_tex
 118	8000	Kumas Boss	3110	Hush!	icon_skills.kw_breath_tex
+118	8000	Kumas Boss	3111	Hush!	icon_skills.kw_breath_tex
 118	8000	Kumas Boss	4110	Stink-Eye	icon_skills.kw_flashcannon_tex
 118	8000	Kumas Boss	4170	Rage-Waddle	icon_skills.kw_dashattack_tex
 118	8000	Kumas Boss	4180	Rage-Flop	icon_skills.kw_leapattack_tex
@@ -68,10 +75,13 @@
 118	9000		4150	Backpedal	icon_skills.kw_backjump_tex
 118	9000		4160	Somersault	icon_skills.kumas_frontroll_tex
 121	9005		1301	Fire Salvo	icon_skills.vehicleex_att01_tex
+121	9005		1302	Fire Salvo	icon_skills.vehicleex_att01_tex
 121	9005		1501	Dismount	icon_skills.vehicleex_getoff_tex
 122	9005		1301	Fire Salvo	icon_skills.vehicleex_att01_tex
+122	9005		1302	Fire Salvo	icon_skills.vehicleex_att01_tex
 122	9005		1501	Dismount	icon_skills.vehicleex_getoff_tex
 123	9005		1301	Fire Salvo	icon_skills.vehicleex_att01_tex
+123	9005		1302	Fire Salvo	icon_skills.vehicleex_att01_tex
 123	9005		1501	Dismount	icon_skills.vehicleex_getoff_tex
 191	1601	Siege Weapon	1101	Fire Salvo	icon_skills.vehicleex_att01_tex
 191	1601	Siege Weapon	1102	Fire Salvo	icon_skills.vehicleex_att01_tex
@@ -81,8 +91,10 @@
 191	1605	Airship	1101	Cast Off	icon_skills.vehicle_drive_tex
 191	1605	Airship	1201	Jump	icon_skills.vehicleex_getoff_tex
 210	2999	Splash Cannon	1101	Fire Salvo	icon_items.q_arogonnmucus_tex
+210	2999	Splash Cannon	1103	Fire Salvo	icon_items.q_arogonnmucus_tex
 210	2999	Splash Cannon	1201	Dismount	icon_skills.vehicleex_getoff_tex
 210	3000	Splash Cannon	1101	Fire Salvo	icon_items.q_arogonnmucus_tex
+210	3000	Splash Cannon	1103	Fire Salvo	icon_items.q_arogonnmucus_tex
 210	3000	Splash Cannon	1201	Dismount	icon_skills.vehicleex_getoff_tex
 210	4000	Toy Tank	1101	Fire Salvo	icon_skills.vehicleex_att01_tex
 210	4000	Toy Tank	1102	Fire Salvo	icon_skills.vehicleex_att01_tex
@@ -112,8 +124,14 @@
 450	5000	Airship	1101	Cast Off	icon_skills.vehicle_drive_tex
 450	5000	Airship	1201	Jump	icon_skills.vehicleex_getoff_tex
 453	500		1101	Fire Salvo	icon_skills.vehicleex_att01_tex
+453	500		1102	Fire Salvo	icon_skills.vehicleex_att01_tex
+453	500		1103	Fire Salvo	icon_skills.vehicleex_att01_tex
+453	500		1104	Fire Salvo	icon_skills.vehicleex_att01_tex
 453	500		1201	Dismount	icon_skills.vehicleex_getoff_tex
 453	501		1101	Fire Salvo	icon_skills.vehicleex_att01_tex
+453	501		1102	Fire Salvo	icon_skills.vehicleex_att01_tex
+453	501		1103	Fire Salvo	icon_skills.vehicleex_att01_tex
+453	501		1104	Fire Salvo	icon_skills.vehicleex_att01_tex
 453	501		1201	Dismount	icon_skills.vehicleex_getoff_tex
 643	4000	Mobile Siege Weapon	1101	Fire Salvo	icon_skills.vehicleex_att01_tex
 643	4000	Mobile Siege Weapon	1102	Fire Salvo	icon_skills.vehicleex_att01_tex
@@ -124,6 +142,7 @@
 743	4000	Mobile Siege Weapon	1102	Fire Salvo	icon_skills.vehicleex_att01_tex
 743	4000	Mobile Siege Weapon	1201	Dismount	icon_skills.vehicleex_getoff_tex
 885	885158	Shardmaker	1101	Fire Salvo	icon_skills.vehicleex_att01_tex
+885	885158	Shardmaker	1102	Fire Salvo	icon_skills.vehicleex_att01_tex
 885	885158	Shardmaker	1201	Dismount	icon_skills.vehicleex_getoff_tex
 950	2003		4120	Rapid Fire	icon_status.shotarrowblindly_tex
 950	2003		4121	Rapid Fire	icon_status.shotarrowblindly_tex

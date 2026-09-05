@@ -236,6 +236,55 @@ public class SmokeTests
         }
     }
 
+    // The regenerated resources/data has to be loadable by the real runtime
+    // readers, not just well-shaped on paper: HotDotDatabase, NpcDatabase,
+    // MapData (which also pulls regions-<LANG>.tsv and section_images.tsv),
+    // SkillDatabase (which also pulls skills-override-<LANG>.tsv) and
+    // PetSkillDatabase. Every lookup below is round-tripped through a row read
+    // straight from the file, so the test stays valid after a regeneration.
+    [Fact]
+    public void ClassicPlusGeneratedData_LoadsWithRuntimeReaders()
+    {
+        const string language = "EU-EN";
+        var dataRoot = ProjectPath("resources", "data");
+
+        var hotDots = new HotDotDatabase(dataRoot, language);
+        Assert.NotNull(hotDots.Enraged);
+        Assert.NotNull(hotDots.Slaying);
+
+        var npcs = new NpcDatabase(dataRoot, language);
+        var firstZone = XDocument
+            .Load(Path.Combine(dataRoot, "monsters", $"monsters-{language}.xml"))
+            .Root!.Elements("Zone")
+            .First();
+        var zoneId = ushort.Parse(firstZone.Attribute("id")!.Value);
+        var templateId = uint.Parse(firstZone.Elements("Monster").First().Attribute("id")!.Value);
+        Assert.NotNull(npcs.GetOrNull(zoneId, templateId));
+        Assert.False(string.IsNullOrWhiteSpace(npcs.GetAreaName(zoneId)));
+
+        var map = new MapData(dataRoot, language);
+        Assert.NotEmpty(map.Worlds);
+        Assert.NotEmpty(map.Names);
+
+        var skills = new SkillDatabase(dataRoot, language);
+        var skillRow = File
+            .ReadLines(Path.Combine(dataRoot, "skills", $"skills-{language}.tsv"))
+            .First()
+            .Split('\t');
+        Assert.NotNull(skills.GetOrNull(
+            new RaceGenderClass(skillRow[1], skillRow[2], skillRow[3]),
+            int.Parse(skillRow[0])));
+
+        var petSkills = new PetSkillDatabase(dataRoot, language, npcs);
+        var petRow = File
+            .ReadLines(Path.Combine(dataRoot, "skills", $"pets-skills-{language}.tsv"))
+            .First()
+            .Split('\t');
+        var petZone = ushort.Parse(petRow[0]);
+        var pet = npcs.GetOrPlaceholder(petZone, uint.Parse(petRow[1]));
+        Assert.NotNull(petSkills.GetOrNull(pet, (petZone << 16) + ushort.Parse(petRow[3])));
+    }
+
     [Fact]
     public void PackagedServerOverrides_IncludeClassicPlusMirror()
     {
