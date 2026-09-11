@@ -5,6 +5,7 @@ using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Diagnostics;
+using System.Globalization;
 using System.Linq;
 using System.Windows;
 using System.Windows.Input;
@@ -1106,13 +1107,13 @@ namespace DamageMeter.UI.Windows
             var title = LP.TestNotificationTitle;
             var body = LP.TestNotificationBody;
 
-            Balloon balloon = null;
-            SoundInterface sound = null;
+            Balloon? balloon = null;
+            SoundInterface? sound = null;
             var priority = 0;
 
             var ev = BasicTeraData.Instance.EventsData.AFK;
             var notifyAction = ev?.Item2?.OfType<NotifyAction>().FirstOrDefault()?.Clone();
-            if (notifyAction != null)
+            if (ev != null && notifyAction != null)
             {
                 priority = ev.Item1.Priority;
                 if (notifyAction.Balloon != null)
@@ -1129,7 +1130,10 @@ namespace DamageMeter.UI.Windows
             if (balloon == null) { balloon = new Balloon(title, body, 3000, EventType.AFK); }
             if (sound == null)
             {
-                sound = new TextToSpeech(body, VoiceGender.Female, VoiceAge.Adult, 0, Data.UILanguage, 30, 0);
+                // UILanguage is "Auto" by default, which is not a culture name: TextToSpeech.Play()
+                // would throw while building the CultureInfo. Resolved like BasicTeraData does.
+                var ttsCulture = Data.UILanguage != "Auto" ? Data.UILanguage : CultureInfo.CurrentUICulture.Name;
+                sound = new TextToSpeech(body, VoiceGender.Female, VoiceAge.Adult, 0, ttsCulture, 30, 0);
             }
 
             // AddNotification already honours MuteSound.

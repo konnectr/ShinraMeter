@@ -372,9 +372,15 @@ namespace Data
             return !notifications.TryGetValue(type, out var enabled) || enabled;
         }
 
+        /// <summary>
+        /// Copy on write: the dictionary is read from the packet processing thread (through
+        /// DefaultNotifyAction) and from Save(), while the settings window mutates it from the UI
+        /// thread. Dictionary is not safe for concurrent read/write, so publish a new instance
+        /// instead of mutating the shared one.
+        /// </summary>
         public void SetNotificationEnabled(EventType type, bool enabled)
         {
-            notifications[type] = enabled;
+            notifications = new Dictionary<EventType, bool>(notifications) { [type] = enabled };
         }
 
         private void DpsServers_CollectionChanged(object sender, System.Collections.Specialized.NotifyCollectionChangedEventArgs e)
@@ -465,7 +471,7 @@ namespace Data
         private bool showTimeLeft = false;
         private bool noAbnormalsInHUD = false;
         private bool _userPaused = false;
-        private Dictionary<EventType, bool> notifications = new Dictionary<EventType, bool>();
+        private volatile Dictionary<EventType, bool> notifications = new Dictionary<EventType, bool>();
 
         /// <summary>
         /// Popup notification kinds the user can individually opt out of, in display order.

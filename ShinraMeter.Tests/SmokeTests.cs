@@ -2,8 +2,8 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Xml.Linq;
-using Data.Actions.Notify.SoundElements;
 using Data;
+using Data.Actions.Notify.SoundElements;
 using Tera;
 using Tera.Game;
 using Tera.Game.Messages;
@@ -514,6 +514,9 @@ public class SmokeTests
 
         var eventsTabStart = settingsSource.IndexOf("<!--Events-->", StringComparison.Ordinal);
         var richPresenceTabStart = settingsSource.IndexOf("<!--Rich presence-->", StringComparison.Ordinal);
+        Assert.True(eventsTabStart >= 0, "Events tab marker was not found.");
+        Assert.True(richPresenceTabStart > eventsTabStart, "Rich presence tab should follow the events tab.");
+
         var eventsTab = settingsSource.Substring(eventsTabStart, richPresenceTabStart - eventsTabStart);
 
         Assert.Contains("lang:LP.NotificationsSection", eventsTab);
