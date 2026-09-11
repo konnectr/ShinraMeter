@@ -2475,5 +2475,149 @@ namespace Lang {
                 return ResourceManager.GetString("Your_hotkeys_xml_file_is_invalid", resourceCulture);
             }
         }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Notifications.
+        /// </summary>
+        public static string NotificationsSection {
+            get {
+                return ResourceManager.GetString("NotificationsSection", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Choose which on-screen popup notifications you want to receive..
+        /// </summary>
+        public static string NotificationsDescription {
+            get {
+                return ResourceManager.GetString("NotificationsDescription", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Test.
+        /// </summary>
+        public static string TestNotification {
+            get {
+                return ResourceManager.GetString("TestNotification", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Test notification.
+        /// </summary>
+        public static string TestNotificationTitle {
+            get {
+                return ResourceManager.GetString("TestNotificationTitle", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to This is how notifications look.
+        /// </summary>
+        public static string TestNotificationBody {
+            get {
+                return ResourceManager.GetString("TestNotificationBody", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Whisper.
+        /// </summary>
+        public static string NotifyWhisper {
+            get {
+                return ResourceManager.GetString("NotifyWhisper", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Chat mention (@name).
+        /// </summary>
+        public static string NotifyMention {
+            get {
+                return ResourceManager.GetString("NotifyMention", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Wake up (@@).
+        /// </summary>
+        public static string NotifyWakeUp {
+            get {
+                return ResourceManager.GetString("NotifyWakeUp", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Dungeon/BG matching success.
+        /// </summary>
+        public static string NotifyMatchingSuccess {
+            get {
+                return ResourceManager.GetString("NotifyMatchingSuccess", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Party ready check.
+        /// </summary>
+        public static string NotifyReadyCheck {
+            get {
+                return ResourceManager.GetString("NotifyReadyCheck", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Player applied to your party.
+        /// </summary>
+        public static string NotifyOtherUserApply {
+            get {
+                return ResourceManager.GetString("NotifyOtherUserApply", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Broker offer.
+        /// </summary>
+        public static string NotifyBroker {
+            get {
+                return ResourceManager.GetString("NotifyBroker", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Party invite.
+        /// </summary>
+        public static string NotifyPartyInvite {
+            get {
+                return ResourceManager.GetString("NotifyPartyInvite", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Trade request.
+        /// </summary>
+        public static string NotifyTrade {
+            get {
+                return ResourceManager.GetString("NotifyTrade", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Other contract request.
+        /// </summary>
+        public static string NotifyGenericContract {
+            get {
+                return ResourceManager.GetString("NotifyGenericContract", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Vanguard credits near cap.
+        /// </summary>
+        public static string NotifyVanguardCredits {
+            get {
+                return ResourceManager.GetString("NotifyVanguardCredits", resourceCulture);
+            }
+        }
     }
 }

@@ -558,6 +558,56 @@
                         <settings:CheckboxSetting IsOn="{Binding ShowAfkEventsIngame, Mode=TwoWay}"
                                                   IsEnabled="{Binding EnableChatAndNotif}"
                                                   SettingName="{x:Static lang:LP.ShowAfkEventsIngame}" />
+                        <Separator Opacity=".2" Margin="0 8" />
+                        <TextBlock Style="{StaticResource DefaultTextStyle}"
+                                   Text="{x:Static lang:LP.NotificationsSection}"
+                                   FontWeight="Bold"
+                                   Margin="32 0 0 4" />
+                        <TextBlock Style="{StaticResource DefaultTextStyle}"
+                                   Text="{x:Static lang:LP.NotificationsDescription}"
+                                   TextWrapping="Wrap"
+                                   Margin="32 0 0 8" />
+                        <settings:CheckboxSetting IsOn="{Binding NotifyWhisper, Mode=TwoWay}"
+                                                  IsEnabled="{Binding EnableChatAndNotif}"
+                                                  SettingName="{x:Static lang:LP.NotifyWhisper}" />
+                        <settings:CheckboxSetting IsOn="{Binding NotifyMention, Mode=TwoWay}"
+                                                  IsEnabled="{Binding EnableChatAndNotif}"
+                                                  SettingName="{x:Static lang:LP.NotifyMention}" />
+                        <settings:CheckboxSetting IsOn="{Binding NotifyWakeUp, Mode=TwoWay}"
+                                                  IsEnabled="{Binding EnableChatAndNotif}"
+                                                  SettingName="{x:Static lang:LP.NotifyWakeUp}" />
+                        <settings:CheckboxSetting IsOn="{Binding NotifyMatchingSuccess, Mode=TwoWay}"
+                                                  IsEnabled="{Binding EnableChatAndNotif}"
+                                                  SettingName="{x:Static lang:LP.NotifyMatchingSuccess}" />
+                        <settings:CheckboxSetting IsOn="{Binding NotifyReadyCheck, Mode=TwoWay}"
+                                                  IsEnabled="{Binding EnableChatAndNotif}"
+                                                  SettingName="{x:Static lang:LP.NotifyReadyCheck}" />
+                        <settings:CheckboxSetting IsOn="{Binding NotifyOtherUserApply, Mode=TwoWay}"
+                                                  IsEnabled="{Binding EnableChatAndNotif}"
+                                                  SettingName="{x:Static lang:LP.NotifyOtherUserApply}" />
+                        <settings:CheckboxSetting IsOn="{Binding NotifyBroker, Mode=TwoWay}"
+                                                  IsEnabled="{Binding EnableChatAndNotif}"
+                                                  SettingName="{x:Static lang:LP.NotifyBroker}" />
+                        <settings:CheckboxSetting IsOn="{Binding NotifyPartyInvite, Mode=TwoWay}"
+                                                  IsEnabled="{Binding EnableChatAndNotif}"
+                                                  SettingName="{x:Static lang:LP.NotifyPartyInvite}" />
+                        <settings:CheckboxSetting IsOn="{Binding NotifyTrade, Mode=TwoWay}"
+                                                  IsEnabled="{Binding EnableChatAndNotif}"
+                                                  SettingName="{x:Static lang:LP.NotifyTrade}" />
+                        <settings:CheckboxSetting IsOn="{Binding NotifyGenericContract, Mode=TwoWay}"
+                                                  IsEnabled="{Binding EnableChatAndNotif}"
+                                                  SettingName="{x:Static lang:LP.NotifyGenericContract}" />
+                        <settings:CheckboxSetting IsOn="{Binding NotifyVanguardCredits, Mode=TwoWay}"
+                                                  IsEnabled="{Binding EnableChatAndNotif}"
+                                                  SettingName="{x:Static lang:LP.NotifyVanguardCredits}" />
+                        <Button Command="{Binding TestNotificationCommand}"
+                                IsEnabled="{Binding EnableChatAndNotif}"
+                                HorizontalAlignment="Left"
+                                HorizontalContentAlignment="Center"
+                                Padding="10 0"
+                                Margin="32 8 0 0">
+                            <TextBlock Text="{x:Static lang:LP.TestNotification}" VerticalAlignment="Center" />
+                        </Button>
                         <!--<Button Content="Edit events..." VerticalAlignment="Center"
                                 HorizontalAlignment="Center"
                                 VerticalContentAlignment="Center"

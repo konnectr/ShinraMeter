@@ -892,4 +892,52 @@ Reset and paused until map change or relog.</value>
   <data name="SystemTray_SnapToBorders" xml:space="preserve">
     <value>Snap windows to borders</value>
   </data>
+  <data name="NotificationsSection" xml:space="preserve">
+    <value>Notifications</value>
+  </data>
+  <data name="NotificationsDescription" xml:space="preserve">
+    <value>Choose which on-screen popup notifications you want to receive.</value>
+  </data>
+  <data name="TestNotification" xml:space="preserve">
+    <value>Test</value>
+  </data>
+  <data name="TestNotificationTitle" xml:space="preserve">
+    <value>Test notification</value>
+  </data>
+  <data name="TestNotificationBody" xml:space="preserve">
+    <value>This is how notifications look</value>
+  </data>
+  <data name="NotifyWhisper" xml:space="preserve">
+    <value>Whisper</value>
+  </data>
+  <data name="NotifyMention" xml:space="preserve">
+    <value>Chat mention (@name)</value>
+  </data>
+  <data name="NotifyWakeUp" xml:space="preserve">
+    <value>Wake up (@@)</value>
+  </data>
+  <data name="NotifyMatchingSuccess" xml:space="preserve">
+    <value>Dungeon/BG matching success</value>
+  </data>
+  <data name="NotifyReadyCheck" xml:space="preserve">
+    <value>Party ready check</value>
+  </data>
+  <data name="NotifyOtherUserApply" xml:space="preserve">
+    <value>Player applied to your party</value>
+  </data>
+  <data name="NotifyBroker" xml:space="preserve">
+    <value>Broker offer</value>
+  </data>
+  <data name="NotifyPartyInvite" xml:space="preserve">
+    <value>Party invite</value>
+  </data>
+  <data name="NotifyTrade" xml:space="preserve">
+    <value>Trade request</value>
+  </data>
+  <data name="NotifyGenericContract" xml:space="preserve">
+    <value>Other contract request</value>
+  </data>
+  <data name="NotifyVanguardCredits" xml:space="preserve">
+    <value>Vanguard credits near cap</value>
+  </data>
 </root>

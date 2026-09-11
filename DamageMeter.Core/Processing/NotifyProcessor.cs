@@ -51,6 +51,7 @@ namespace DamageMeter.Processing
 
         internal NotifyFlashMessage DefaultNotifyAction(string titleText, string bodyText, EventType evType)
         {
+            if (!BasicTeraData.Instance.WindowData.IsNotificationEnabled(evType)) { return null; }
             var ev = BasicTeraData.Instance.EventsData.AFK;
 
             if (!(ev?.Item1 is CommonAFKEvent)) { return null; }

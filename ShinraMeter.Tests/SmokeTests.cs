@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Xml.Linq;
 using Data.Actions.Notify.SoundElements;
+using Data;
 using Tera;
 using Tera.Game;
 using Tera.Game.Messages;
@@ -462,6 +463,65 @@ public class SmokeTests
 
         Assert.DoesNotContain("Pause();", overloadBlock);
         Assert.DoesNotContain("RaisePause(true);", overloadBlock);
+    }
+
+    [Fact]
+    public void NotificationSettings_RoundTripThroughWindowXml()
+    {
+        var settings = new Dictionary<EventType, bool>
+        {
+            { EventType.Whisper, false },
+            { EventType.VanguardCredits, false },
+        };
+
+        var serialized = WindowData.SerializeNotifications(settings);
+        var reloaded = WindowData.ParseNotifications(new XElement("window", serialized));
+
+        Assert.Equal("notifications", serialized.Name.LocalName);
+        Assert.Equal(WindowData.ConfigurableNotifications.Count, serialized.Elements().Count());
+        Assert.Equal("false", serialized.Element("whisper")!.Value.ToLowerInvariant());
+        Assert.Equal("false", serialized.Element("vanguard_credits")!.Value.ToLowerInvariant());
+        Assert.Equal("true", serialized.Element("party_invite")!.Value.ToLowerInvariant());
+
+        Assert.False(reloaded[EventType.Whisper]);
+        Assert.False(reloaded[EventType.VanguardCredits]);
+        Assert.True(reloaded[EventType.PartyInvite]);
+    }
+
+    [Fact]
+    public void NotificationSettings_DefaultToEnabledWhenTheConfigHasNoEntry()
+    {
+        var missingSection = WindowData.ParseNotifications(new XElement("window"));
+        Assert.Empty(missingSection);
+
+        var partialSection = WindowData.ParseNotifications(
+            new XElement("window", new XElement("notifications", new XElement("trade", false))));
+
+        Assert.False(partialSection[EventType.Trade]);
+        Assert.DoesNotContain(EventType.Broker, partialSection.Keys);
+    }
+
+    [Fact]
+    public void NotificationSettings_AreGatedInTheNotifyPipelineAndExposedInTheEventsTab()
+    {
+        var notifySource = File.ReadAllText(ProjectPath("DamageMeter.Core", "Processing", "NotifyProcessor.cs"));
+        var settingsSource = File.ReadAllText(ProjectPath("DamageMeter.UI", "Windows", "SettingsWindow.xaml"));
+        var vmSource = File.ReadAllText(ProjectPath("DamageMeter.UI", "Windows", "SettingsWindowViewModel.cs"));
+
+        Assert.Contains(
+            "if (!BasicTeraData.Instance.WindowData.IsNotificationEnabled(evType)) { return null; }",
+            notifySource);
+
+        var eventsTabStart = settingsSource.IndexOf("<!--Events-->", StringComparison.Ordinal);
+        var richPresenceTabStart = settingsSource.IndexOf("<!--Rich presence-->", StringComparison.Ordinal);
+        var eventsTab = settingsSource.Substring(eventsTabStart, richPresenceTabStart - eventsTabStart);
+
+        Assert.Contains("lang:LP.NotificationsSection", eventsTab);
+        Assert.Contains("Command=\"{Binding TestNotificationCommand}\"", eventsTab);
+        Assert.Contains("{Binding NotifyWhisper, Mode=TwoWay}", eventsTab);
+        Assert.Contains("{Binding NotifyVanguardCredits, Mode=TwoWay}", eventsTab);
+
+        Assert.Contains("App.HudContainer.Notifications.AddNotification(", vmSource);
     }
 
     private static string ProjectPath(params string[] parts)

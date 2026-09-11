@@ -836,4 +836,52 @@
   <data name="CloseNoConfirm" xml:space="preserve">
     <value>Закрыть (без подтверждения)</value>
   </data>
+  <data name="NotificationsSection" xml:space="preserve">
+    <value>Уведомления</value>
+  </data>
+  <data name="NotificationsDescription" xml:space="preserve">
+    <value>Выберите, какие всплывающие уведомления вы хотите получать.</value>
+  </data>
+  <data name="TestNotification" xml:space="preserve">
+    <value>Проверить</value>
+  </data>
+  <data name="TestNotificationTitle" xml:space="preserve">
+    <value>Тестовое уведомление</value>
+  </data>
+  <data name="TestNotificationBody" xml:space="preserve">
+    <value>Так выглядят уведомления</value>
+  </data>
+  <data name="NotifyWhisper" xml:space="preserve">
+    <value>Шёпот</value>
+  </data>
+  <data name="NotifyMention" xml:space="preserve">
+    <value>Упоминание в чате (@имя)</value>
+  </data>
+  <data name="NotifyWakeUp" xml:space="preserve">
+    <value>Подъём (@@)</value>
+  </data>
+  <data name="NotifyMatchingSuccess" xml:space="preserve">
+    <value>Успешный подбор в подземелье/ПБ</value>
+  </data>
+  <data name="NotifyReadyCheck" xml:space="preserve">
+    <value>Проверка готовности группы</value>
+  </data>
+  <data name="NotifyOtherUserApply" xml:space="preserve">
+    <value>Заявка игрока в вашу группу</value>
+  </data>
+  <data name="NotifyBroker" xml:space="preserve">
+    <value>Предложение на бирже</value>
+  </data>
+  <data name="NotifyPartyInvite" xml:space="preserve">
+    <value>Приглашение в группу</value>
+  </data>
+  <data name="NotifyTrade" xml:space="preserve">
+    <value>Запрос на обмен</value>
+  </data>
+  <data name="NotifyGenericContract" xml:space="preserve">
+    <value>Другой запрос</value>
+  </data>
+  <data name="NotifyVanguardCredits" xml:space="preserve">
+    <value>Кредиты Авангарда близки к лимиту</value>
+  </data>
 </root>

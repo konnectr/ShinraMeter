@@ -10,11 +10,14 @@ using System.Windows;
 using System.Windows.Input;
 using System.Windows.Media;
 using DamageMeter.UI.EventsEditor;
+using Data.Actions.Notify;
+using Data.Actions.Notify.SoundElements;
 using Lang;
 using Tera.Game;
 using Tera.RichPresence;
 using Action = System.Action;
 using CaptureMode = Data.CaptureMode;
+using EventType = Data.EventType;
 
 namespace DamageMeter.UI.Windows
 {
@@ -762,6 +765,118 @@ namespace DamageMeter.UI.Windows
             }
         }
 
+        // per-kind popup notifications
+        public bool NotifyWhisper
+        {
+            get => Data.IsNotificationEnabled(EventType.Whisper);
+            set
+            {
+                if (Data.IsNotificationEnabled(EventType.Whisper) == value) return;
+                Data.SetNotificationEnabled(EventType.Whisper, value);
+                NotifyPropertyChanged();
+            }
+        }
+        public bool NotifyMention
+        {
+            get => Data.IsNotificationEnabled(EventType.Mention);
+            set
+            {
+                if (Data.IsNotificationEnabled(EventType.Mention) == value) return;
+                Data.SetNotificationEnabled(EventType.Mention, value);
+                NotifyPropertyChanged();
+            }
+        }
+        public bool NotifyWakeUp
+        {
+            get => Data.IsNotificationEnabled(EventType.WakeUp);
+            set
+            {
+                if (Data.IsNotificationEnabled(EventType.WakeUp) == value) return;
+                Data.SetNotificationEnabled(EventType.WakeUp, value);
+                NotifyPropertyChanged();
+            }
+        }
+        public bool NotifyMatchingSuccess
+        {
+            get => Data.IsNotificationEnabled(EventType.MatchingSuccess);
+            set
+            {
+                if (Data.IsNotificationEnabled(EventType.MatchingSuccess) == value) return;
+                Data.SetNotificationEnabled(EventType.MatchingSuccess, value);
+                NotifyPropertyChanged();
+            }
+        }
+        public bool NotifyReadyCheck
+        {
+            get => Data.IsNotificationEnabled(EventType.ReadyCheck);
+            set
+            {
+                if (Data.IsNotificationEnabled(EventType.ReadyCheck) == value) return;
+                Data.SetNotificationEnabled(EventType.ReadyCheck, value);
+                NotifyPropertyChanged();
+            }
+        }
+        public bool NotifyOtherUserApply
+        {
+            get => Data.IsNotificationEnabled(EventType.OtherUserApply);
+            set
+            {
+                if (Data.IsNotificationEnabled(EventType.OtherUserApply) == value) return;
+                Data.SetNotificationEnabled(EventType.OtherUserApply, value);
+                NotifyPropertyChanged();
+            }
+        }
+        public bool NotifyBroker
+        {
+            get => Data.IsNotificationEnabled(EventType.Broker);
+            set
+            {
+                if (Data.IsNotificationEnabled(EventType.Broker) == value) return;
+                Data.SetNotificationEnabled(EventType.Broker, value);
+                NotifyPropertyChanged();
+            }
+        }
+        public bool NotifyPartyInvite
+        {
+            get => Data.IsNotificationEnabled(EventType.PartyInvite);
+            set
+            {
+                if (Data.IsNotificationEnabled(EventType.PartyInvite) == value) return;
+                Data.SetNotificationEnabled(EventType.PartyInvite, value);
+                NotifyPropertyChanged();
+            }
+        }
+        public bool NotifyTrade
+        {
+            get => Data.IsNotificationEnabled(EventType.Trade);
+            set
+            {
+                if (Data.IsNotificationEnabled(EventType.Trade) == value) return;
+                Data.SetNotificationEnabled(EventType.Trade, value);
+                NotifyPropertyChanged();
+            }
+        }
+        public bool NotifyGenericContract
+        {
+            get => Data.IsNotificationEnabled(EventType.GenericContract);
+            set
+            {
+                if (Data.IsNotificationEnabled(EventType.GenericContract) == value) return;
+                Data.SetNotificationEnabled(EventType.GenericContract, value);
+                NotifyPropertyChanged();
+            }
+        }
+        public bool NotifyVanguardCredits
+        {
+            get => Data.IsNotificationEnabled(EventType.VanguardCredits);
+            set
+            {
+                if (Data.IsNotificationEnabled(EventType.VanguardCredits) == value) return;
+                Data.SetNotificationEnabled(EventType.VanguardCredits, value);
+                NotifyPropertyChanged();
+            }
+        }
+
         // rich presence
         public bool RichPresenceEnable
         {
@@ -960,6 +1075,7 @@ namespace DamageMeter.UI.Windows
         public ICommand OpenUploadHistoryCommand { get; }
         public ICommand ResetColorCommand { get; }
         public ICommand OpenEventEditorCommand { get; }
+        public ICommand TestNotificationCommand { get; }
         public List<MockPlayerViewModel> MockParty { get; }
 
         private int _selectedIndex;
@@ -979,6 +1095,46 @@ namespace DamageMeter.UI.Windows
 
         public ToastViewModel ToastData { get; }
 
+
+        /// <summary>
+        /// Shows a sample popup through the real notification pipeline so the user can see what
+        /// notifications look like. Falls back to the shipped defaults when the common_afk template
+        /// is missing or inactive, otherwise nothing would ever be displayed.
+        /// </summary>
+        private static void ShowTestNotification()
+        {
+            var title = LP.TestNotificationTitle;
+            var body = LP.TestNotificationBody;
+
+            Balloon balloon = null;
+            SoundInterface sound = null;
+            var priority = 0;
+
+            var ev = BasicTeraData.Instance.EventsData.AFK;
+            var notifyAction = ev?.Item2?.OfType<NotifyAction>().FirstOrDefault()?.Clone();
+            if (notifyAction != null)
+            {
+                priority = ev.Item1.Priority;
+                if (notifyAction.Balloon != null)
+                {
+                    notifyAction.Balloon.TitleText = title;
+                    notifyAction.Balloon.BodyText = body;
+                    notifyAction.Balloon.EventType = EventType.AFK;
+                    balloon = notifyAction.Balloon;
+                }
+                if (notifyAction.Sound is TextToSpeech tts) { tts.Text = body; }
+                sound = notifyAction.Sound;
+            }
+
+            if (balloon == null) { balloon = new Balloon(title, body, 3000, EventType.AFK); }
+            if (sound == null)
+            {
+                sound = new TextToSpeech(body, VoiceGender.Female, VoiceAge.Adult, 0, Data.UILanguage, 30, 0);
+            }
+
+            // AddNotification already honours MuteSound.
+            App.HudContainer.Notifications.AddNotification(new NotifyFlashMessage(sound, balloon, priority));
+        }
 
         public SettingsWindowViewModel()
         {
@@ -1058,6 +1214,7 @@ namespace DamageMeter.UI.Windows
                 }
             });
             OpenEventEditorCommand = new RelayCommand(_ => EventsEditorService.Show());
+            TestNotificationCommand = new RelayCommand(_ => ShowTestNotification());
 
             var count = 0;
             Hotkeys.Copy.ForEach(h => CopyKeys.Add(new CopyKeyVM($"DPS paste {++count}", h)));

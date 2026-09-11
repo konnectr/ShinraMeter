@@ -243,6 +243,7 @@ namespace Data
                 ParseRichPresence();
                 ParseRealtimeGraph();
                 ParseMetrics();
+                notifications = ParseNotifications(_xml.Root);
                 Parse("date_in_excel_path", nameof(dateInExcelPath));
                 if (dateInExcelPath) { excelPathTemplate = "{Area}/{Date}/{Boss} {Time} {User}"; }
 
@@ -317,6 +318,64 @@ namespace Data
             });
         }
 
+
+        private static string NotificationXmlName(EventType type)
+        {
+            switch (type)
+            {
+                case EventType.MatchingSuccess: return "matching_success";
+                case EventType.ReadyCheck: return "ready_check";
+                case EventType.OtherUserApply: return "other_user_apply";
+                case EventType.PartyInvite: return "party_invite";
+                case EventType.GenericContract: return "generic_contract";
+                case EventType.VanguardCredits: return "vanguard_credits";
+                case EventType.WakeUp: return "wake_up";
+                default: return type.ToString().ToLowerInvariant();
+            }
+        }
+
+        /// <summary>
+        /// Reads the per-kind popup notification switches. Missing entries stay enabled, so older
+        /// config files keep the previous behaviour.
+        /// </summary>
+        public static Dictionary<EventType, bool> ParseNotifications(XElement root)
+        {
+            /*
+                <notifications>
+                    <whisper>true</whisper>
+                    <mention>false</mention>
+                    ...
+                </notifications>
+            */
+            var result = new Dictionary<EventType, bool>();
+            var notificationsXml = root?.Element("notifications");
+            if (notificationsXml == null) { return result; }
+            ConfigurableNotifications.ForEach(type =>
+            {
+                var element = notificationsXml.Element(NotificationXmlName(type));
+                if (element == null) { return; }
+                if (bool.TryParse(element.Value, out var enabled)) { result[type] = enabled; }
+            });
+            return result;
+        }
+
+        public static XElement SerializeNotifications(Dictionary<EventType, bool> settings)
+        {
+            var notificationsXml = new XElement("notifications");
+            ConfigurableNotifications.ForEach(type =>
+                notificationsXml.Add(new XElement(NotificationXmlName(type), !settings.TryGetValue(type, out var enabled) || enabled)));
+            return notificationsXml;
+        }
+
+        public bool IsNotificationEnabled(EventType type)
+        {
+            return !notifications.TryGetValue(type, out var enabled) || enabled;
+        }
+
+        public void SetNotificationEnabled(EventType type, bool enabled)
+        {
+            notifications[type] = enabled;
+        }
 
         private void DpsServers_CollectionChanged(object sender, System.Collections.Specialized.NotifyCollectionChangedEventArgs e)
         {
@@ -406,6 +465,27 @@ namespace Data
         private bool showTimeLeft = false;
         private bool noAbnormalsInHUD = false;
         private bool _userPaused = false;
+        private Dictionary<EventType, bool> notifications = new Dictionary<EventType, bool>();
+
+        /// <summary>
+        /// Popup notification kinds the user can individually opt out of, in display order.
+        /// MissingAb/AddRemoveAb/Cooldown are configured through the events editor instead.
+        /// </summary>
+        public static readonly List<EventType> ConfigurableNotifications = new List<EventType>
+        {
+            EventType.Whisper,
+            EventType.Mention,
+            EventType.WakeUp,
+            EventType.MatchingSuccess,
+            EventType.ReadyCheck,
+            EventType.OtherUserApply,
+            EventType.Broker,
+            EventType.PartyInvite,
+            EventType.Trade,
+            EventType.GenericContract,
+            EventType.VanguardCredits
+        };
+
         private bool displayTimerBasedOnAggro = true;
 
         private bool enableRichPresence = true;
@@ -827,6 +907,8 @@ namespace Data
                 xml.Root.Add(new XElement("display_only_boss_hit_by_meter_user", displayOnlyBossHitByMeterUser));
                 xml.Root.Add(new XElement("max_tts_size", maxTTSSize));
                 xml.Root.Add(new XElement("tts_size_exceeded_truncate", ttsSizeExceededTruncate));
+
+                xml.Root.Add(SerializeNotifications(notifications));
 
                 xml.Root.Add(new XElement("realtime_graph"));
                 xml.Root.Element("realtime_graph").Add(new XElement("enabled", realtimeGraphEnabled));
