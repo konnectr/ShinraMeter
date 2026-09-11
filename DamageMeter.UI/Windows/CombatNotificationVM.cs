@@ -70,20 +70,20 @@ namespace DamageMeter.UI.Windows
             var notifyAction = _actions.OfType<NotifyAction>().FirstOrDefault()?.Clone();
             if (notifyAction == null) { return; }
 
-            var evType = EventTypeOf(_event);
             var replacements = BuildReplacements(_event);
 
             if (notifyAction.Balloon != null)
             {
                 notifyAction.Balloon.TitleText = Substitute(notifyAction.Balloon.TitleText, replacements);
                 notifyAction.Balloon.BodyText = Substitute(notifyAction.Balloon.BodyText, replacements);
-                notifyAction.Balloon.EventType = evType;
+                // The balloon keeps the event type it was parsed/edited with, which is what decides
+                // the popup colour when the event really fires.
                 notifyAction.Balloon.Icon = ResolveIcon(_event) ?? notifyAction.Balloon.Icon;
                 if (notifyAction.Balloon.DisplayTime < 500) { notifyAction.Balloon.DisplayTime = 3000; }
             }
             else
             {
-                notifyAction.Balloon = new Balloon(LP.CombatNotificationsSection, Label, 3000, evType)
+                notifyAction.Balloon = new Balloon(LP.CombatNotificationsSection, Label, 3000, EventTypeOf(_event))
                 {
                     Icon = ResolveIcon(_event)
                 };
@@ -144,11 +144,15 @@ namespace DamageMeter.UI.Windows
             catch { return LP.CombatNotifyTestPlayer; }
         }
 
+        /// <summary>
+        /// Only used for events whose notify action has no balloon of its own. Mirrors what the
+        /// events parser stamps on a balloon it does build.
+        /// </summary>
         private static EventType EventTypeOf(Event ev)
         {
             return ev switch
             {
-                AbnormalityEvent ab => ab.Trigger == AbnormalityTriggerType.MissingDuringFight || ab.Trigger == AbnormalityTriggerType.Ending
+                AbnormalityEvent ab => ab.Trigger == AbnormalityTriggerType.MissingDuringFight
                     ? EventType.MissingAb
                     : EventType.AddRemoveAb,
                 CooldownEvent => EventType.Cooldown,

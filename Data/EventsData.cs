@@ -38,6 +38,17 @@ namespace Data
     {
         private readonly BasicTeraData _basicData;
 
+        /// <summary>
+        /// Load() runs on the packet thread (login / class change) while Save() and
+        /// RefreshActiveEvents() run on the UI thread, so the class events and the class they belong
+        /// to are read and published as one unit. The collections NotifyProcessor iterates are still
+        /// read without the lock: they are swapped by reference, never mutated in place.
+        /// </summary>
+        private readonly object _sync = new object();
+
+        /// <summary>Active flag of every class event as it was read from events-&lt;class&gt;.xml.</summary>
+        private Dictionary<Event, bool> _classActiveOnDisk = new Dictionary<Event, bool>();
+
         public EventsData(BasicTeraData basicData)
         {
             _basicData = basicData;
@@ -117,11 +128,20 @@ namespace Data
                 BasicTeraData.LogError(ex.Message, true, true);
                 return;
             }
-            EventsClass = new Dictionary<Event, List<Action>>();
-            ParseAbnormalities(EventsClass, xml);
-            ParseCooldown(EventsClass, xml);
-            CurrentClass = playerClass;
-            RefreshActiveEvents();
+            // Parse into a private dictionary first: a parse error midway through must not leave a
+            // half filled set published under the previously loaded class, which Save() would then
+            // write over that class' file. This also keeps the settings window from enumerating the
+            // set while this (packet) thread is still filling it.
+            var classEvents = new Dictionary<Event, List<Action>>();
+            ParseAbnormalities(classEvents, xml);
+            ParseCooldown(classEvents, xml);
+            lock (_sync)
+            {
+                EventsClass = classEvents;
+                CurrentClass = playerClass;
+                _classActiveOnDisk = SnapshotActive(classEvents);
+                RefreshActiveEventsCore();
+            }
         }
 
         /// <summary>
@@ -132,6 +152,11 @@ namespace Data
         /// per-event state such as NextChecks survives.
         /// </summary>
         public void RefreshActiveEvents()
+        {
+            lock (_sync) { RefreshActiveEventsCore(); }
+        }
+
+        private void RefreshActiveEventsCore()
         {
             if (EventsCommon == null) { return; }
 
@@ -184,14 +209,43 @@ namespace Data
 
         public void Save()
         {
-            SaveEvents(EventsCommon, "events-common.xml");
-            // Class events are editable too (their Active flags back the "Combat notifications"
-            // checkboxes), so they have to round-trip to their own file or the toggles would be
-            // silently reverted by the next Load().
-            if (CurrentClass != PlayerClass.Common && EventsClass != null && EventsClass.Count > 0)
+            lock (_sync)
             {
-                SaveEvents(EventsClass, "events-" + CurrentClass.ToString().ToLowerInvariant() + ".xml");
+                SaveEvents(EventsCommon, "events-common.xml");
+                // Class events are editable too (their Active flags back the "Combat notifications"
+                // checkboxes), so they have to round-trip to their own file or the toggles would be
+                // silently reverted by the next Load().
+                // Only when a flag actually differs from what was loaded, though: serializing drops
+                // the comments that name each event in the shipped events-<class>.xml files, and
+                // Save() runs on every exit even when nothing in there was touched.
+                if (CurrentClass != PlayerClass.Common && EventsClass != null && EventsClass.Count > 0 && ClassActiveFlagsChanged())
+                {
+                    SaveEvents(EventsClass, "events-" + CurrentClass.ToString().ToLowerInvariant() + ".xml");
+                    _classActiveOnDisk = SnapshotActive(EventsClass);
+                }
             }
+        }
+
+        private static Dictionary<Event, bool> SnapshotActive(Dictionary<Event, List<Action>> events)
+        {
+            var snapshot = new Dictionary<Event, bool>();
+            foreach (var e in events) { snapshot[e.Key] = e.Key.Active; }
+            return snapshot;
+        }
+
+        /// <summary>
+        /// True when a class event was enabled or disabled since events-&lt;class&gt;.xml was read.
+        /// Active is the only thing this app changes on class events, so nothing else can make the
+        /// file stale.
+        /// </summary>
+        private bool ClassActiveFlagsChanged()
+        {
+            if (_classActiveOnDisk.Count != EventsClass.Count) { return true; }
+            foreach (var e in EventsClass)
+            {
+                if (!_classActiveOnDisk.TryGetValue(e.Key, out var wasActive) || wasActive != e.Key.Active) { return true; }
+            }
+            return false;
         }
 
         private void SaveEvents(Dictionary<Event, List<Action>> events, string fileName)

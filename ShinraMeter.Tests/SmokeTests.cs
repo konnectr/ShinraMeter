@@ -590,6 +590,42 @@ public class SmokeTests
     }
 
     [Fact]
+    public void ClassEventsFile_IsOnlyRewrittenWhenAToggleActuallyChanged()
+    {
+        var eventsDataSource = File.ReadAllText(ProjectPath("Data", "EventsData.cs"));
+
+        // Save() runs on every exit. Serializing drops the comments that are the only human readable
+        // name of each class event, so the file is only rewritten when an Active flag really moved.
+        Assert.Contains("&& ClassActiveFlagsChanged()", eventsDataSource);
+        Assert.Contains("_classActiveOnDisk = SnapshotActive(classEvents);", eventsDataSource);
+        Assert.Contains("_classActiveOnDisk = SnapshotActive(EventsClass);", eventsDataSource);
+
+        // Those comments are what the guard protects.
+        var commented = Directory
+            .EnumerateFiles(ProjectPath("Lang", "Resources", "en"), "events-*.xml")
+            .Where(x => !Path.GetFileName(x).Equals("events-common.xml", StringComparison.OrdinalIgnoreCase))
+            .Count(x => File.ReadAllText(x).Contains("<!--", StringComparison.Ordinal));
+        Assert.True(commented > 0, "Class event files are expected to document their events with comments.");
+    }
+
+    [Fact]
+    public void ClassEvents_ArePublishedOnlyAfterTheWholeFileParsed()
+    {
+        var eventsDataSource = File.ReadAllText(ProjectPath("Data", "EventsData.cs"));
+
+        // Parsing straight into the published EventsClass would let a mid-file parse error leave a
+        // half filled set under the previous class, which Save() would then write over its file.
+        Assert.Contains("var classEvents = new Dictionary<Event, List<Action>>();", eventsDataSource);
+        Assert.Contains("ParseAbnormalities(classEvents, xml);", eventsDataSource);
+        Assert.Contains("ParseCooldown(classEvents, xml);", eventsDataSource);
+        Assert.DoesNotContain("ParseAbnormalities(EventsClass, xml);", eventsDataSource);
+
+        // Load() runs on the packet thread while Save()/RefreshActiveEvents() run on the UI thread.
+        Assert.Contains("private readonly object _sync = new object();", eventsDataSource);
+        Assert.Contains("lock (_sync) { RefreshActiveEventsCore(); }", eventsDataSource);
+    }
+
+    [Fact]
     public void CombatEventDefaults_StoreTheToggleAsAnActiveAttributePerEvent()
     {
         var xml = XDocument.Parse(File.ReadAllText(ProjectPath("Lang", "Resources", "en", "events-common.xml")));
