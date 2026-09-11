@@ -6,9 +6,31 @@ namespace TCC.UI.Controls.Settings
 {
     public partial class CheckboxSetting
     {
+        /// <summary>Neutral colour the checkbox falls back to, also the value of an unstyled control.</summary>
+        private static readonly Brush DefaultCheckBoxColor = Brushes.LightSlateGray;
+
         public CheckboxSetting()
         {
             InitializeComponent();
+            Loaded += (_, _) => EnsureVisibleCheckBoxColor();
+        }
+
+        /// <summary>
+        /// Last-resort guard against an invisible control. The whole checked look - the box outline,
+        /// its fill and the check mark - is painted with <see cref="CheckBoxColor"/>, while the
+        /// unchecked look keeps a hardcoded outline of its own. A colour that never arrived (a style
+        /// level brush whose binding did not resolve leaves SolidColorBrush at its default, which is
+        /// fully transparent) therefore used to make a checked checkbox vanish completely instead of
+        /// merely losing its accent. Checked at Loaded, when the DataContext and the bindings that
+        /// feed the style are settled.
+        /// </summary>
+        private void EnsureVisibleCheckBoxColor()
+        {
+            var invisible = CheckBoxColor == null
+                            || (CheckBoxColor is SolidColorBrush solid && solid.Color.A == 0)
+                            || CheckBoxColor.Opacity <= 0;
+
+            if (invisible) { CheckBoxColor = DefaultCheckBoxColor; }
         }
 
         public bool IsOn
@@ -27,7 +49,7 @@ namespace TCC.UI.Controls.Settings
         }
 
         public static readonly DependencyProperty CheckBoxColorProperty =
-            DependencyProperty.Register("CheckBoxColor", typeof(Brush), typeof(CheckboxSetting), new PropertyMetadata(Brushes.LightSlateGray));
+            DependencyProperty.Register("CheckBoxColor", typeof(Brush), typeof(CheckboxSetting), new PropertyMetadata(DefaultCheckBoxColor));
 
         public string SettingName
         {

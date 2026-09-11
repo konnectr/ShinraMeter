@@ -75,16 +75,20 @@
                                 <Setter Property="BorderBrush" TargetName="checkBoxBorder" Value="SlateGray" />
                             </Trigger>
                             <Trigger Property="IsChecked" Value="true">
-                                <!-- The check mark used to be made visible by the EnterActions
-                                     storyboard below only. Those run on a false -> true transition,
-                                     which never happens when the control is built already checked:
-                                     inside an ItemsControl DataTemplate the row's DataContext is set
-                                     before the template is applied, so IsChecked starts out true and
-                                     the mark stayed at Opacity 0, i.e. the checkbox looked missing.
-                                     The setter gives the checked state a value of its own; while the
-                                     storyboard runs it still wins, so toggling looks the same. -->
+                                <!-- Setters, not just the EnterActions storyboard below: those run on
+                                     a false -> true transition only, which never happens for a control
+                                     that is built already checked (inside an ItemsControl DataTemplate
+                                     the row's DataContext is set before the template is applied, so
+                                     IsChecked starts out true). While the storyboard runs it still
+                                     wins, so toggling looks exactly the same.
+                                     Everything below is painted with BorderBrush, so an invisible
+                                     BorderBrush hides the whole checked checkbox - the unchecked
+                                     trigger has an outline colour of its own and survives that.
+                                     CheckboxSetting.EnsureVisibleCheckBoxColor is the guard. -->
                                 <Setter Property="Opacity" TargetName="optionMark" Value="1" />
                                 <Setter Property="Opacity" TargetName="indeterminateMark" Value="0" />
+                                <Setter Property="BorderBrush" TargetName="checkBoxBorder"
+                                        Value="{Binding RelativeSource={RelativeSource TemplatedParent}, Path=BorderBrush}" />
                                 <Setter Property="Fill" TargetName="base"
                                         Value="{Binding ElementName=optionMark, Path=Fill}" />
 

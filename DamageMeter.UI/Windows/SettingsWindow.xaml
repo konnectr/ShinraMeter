@@ -41,11 +41,14 @@
         <Style TargetType="settings:CheckboxSetting" BasedOn="{StaticResource {x:Type settings:CheckboxSetting}}">
             <Setter Property="CheckboxSize" Value="14" />
             <Setter Property="Margin" Value="32 0 0 0" />
-            <Setter Property="CheckBoxColor">
-                <Setter.Value>
-                    <SolidColorBrush x:Name="cb" Color="{Binding SelfColor}" />
-                </Setter.Value>
-            </Setter>
+            <!-- Bound from the element, not as a <SolidColorBrush Color="{Binding SelfColor}"/> inside
+                 the setter: a brush in a Setter.Value resolves its binding against the DataContext of
+                 the control the style lands on, which is the row item - not this window's view model -
+                 for the checkboxes inside the combat-notification ItemsControl. There the binding
+                 failed and the brush stayed transparent, and since the whole checked look (outline,
+                 fill and check mark) is painted with this brush, those rows rendered nothing at all. -->
+            <Setter Property="CheckBoxColor"
+                    Value="{Binding DataContext.SelfBrush, RelativeSource={RelativeSource AncestorType=Window}}" />
         </Style>
         <Style TargetType="settings:ValueSetting">
             <Setter Property="Height" Value="32" />
@@ -655,15 +658,35 @@
                                                 <ColumnDefinition Width="Auto" />
                                                 <ColumnDefinition Width="Auto" />
                                             </Grid.ColumnDefinitions>
+                                            <!-- Effect-category rows have no game icon; the dark plate
+                                                 with the empty 1x1 bitmap read as a black square, so
+                                                 they get a neutral glyph in the same 26px slot. -->
                                             <Border Grid.Column="0"
                                                     Width="26" Height="26"
                                                     Margin="32 0 0 0"
                                                     CornerRadius="3"
-                                                    VerticalAlignment="Center"
-                                                    Background="{StaticResource DarkCardColor}">
-                                                <Image Source="{Binding Icon}"
-                                                       Width="24" Height="24"
-                                                       RenderOptions.BitmapScalingMode="HighQuality" />
+                                                    VerticalAlignment="Center">
+                                                <Border.Style>
+                                                    <Style TargetType="Border">
+                                                        <Setter Property="Background" Value="{StaticResource DarkCardColor}" />
+                                                        <Style.Triggers>
+                                                            <DataTrigger Binding="{Binding HasIcon}" Value="False">
+                                                                <Setter Property="Background" Value="Transparent" />
+                                                            </DataTrigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </Border.Style>
+                                                <Grid>
+                                                    <Image Source="{Binding Icon}"
+                                                           Visibility="{Binding IconVisibility}"
+                                                           Width="24" Height="24"
+                                                           RenderOptions.BitmapScalingMode="HighQuality" />
+                                                    <Path Data="{StaticResource Svg.Info}"
+                                                          Visibility="{Binding IconPlaceholderVisibility}"
+                                                          Style="{StaticResource PathBaseStyle}"
+                                                          Margin="5"
+                                                          Opacity=".35" />
+                                                </Grid>
                                             </Border>
                                             <StackPanel Grid.Column="1"
                                                         VerticalAlignment="Center"

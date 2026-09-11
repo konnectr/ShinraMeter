@@ -944,4 +944,10 @@
   <data name="CombatNotifyCategory" xml:space="preserve">
     <value>Категория эффектов</value>
   </data>
+  <data name="CombatNotifyCategoryCrystalBind" xml:space="preserve">
+    <value>Бинд кристаллов</value>
+  </data>
+  <data name="CombatNotifyCategoryCombatCrystalBind" xml:space="preserve">
+    <value>Бинд боевых кристаллов</value>
+  </data>
 </root>

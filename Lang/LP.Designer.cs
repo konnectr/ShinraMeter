@@ -2799,5 +2799,23 @@ namespace Lang {
                 return ResourceManager.GetString("CombatNotifyCategory", resourceCulture);
             }
         }
+
+        /// <summary>
+        ///   Looks up a localized string similar to Crystal bind.
+        /// </summary>
+        public static string CombatNotifyCategoryCrystalBind {
+            get {
+                return ResourceManager.GetString("CombatNotifyCategoryCrystalBind", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to Combat crystal bind.
+        /// </summary>
+        public static string CombatNotifyCategoryCombatCrystalBind {
+            get {
+                return ResourceManager.GetString("CombatNotifyCategoryCombatCrystalBind", resourceCulture);
+            }
+        }
     }
 }

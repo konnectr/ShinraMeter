@@ -8,6 +8,12 @@
 
     <IsPackable>false</IsPackable>
     <IsTestProject>true</IsTestProject>
+
+    <!-- The checkbox render test instantiates the real WPF control and rasterises it. -->
+    <UseWPF>true</UseWPF>
+    <RuntimeIdentifier>win-x64</RuntimeIdentifier>
+    <SelfContained>false</SelfContained>
+    <ValidateExecutableReferencesMatchSelfContained>false</ValidateExecutableReferencesMatchSelfContained>
   </PropertyGroup>
 
   <ItemGroup>
@@ -24,6 +30,8 @@
   <ItemGroup>
     <ProjectReference Include="..\Data\Data.csproj" />
     <ProjectReference Include="..\TeraCommon\Tera.Core.csproj" />
+    <!-- ShinraMeter.exe/dll: needed for the real CheckboxSetting control and its resources. -->
+    <ProjectReference Include="..\DamageMeter.UI\DamageMeter.UI.csproj" SetTargetFramework="TargetFramework=net8-windows" />
   </ItemGroup>
 
 </Project>

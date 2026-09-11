@@ -105,17 +105,7 @@ public class SmokeTests
     [Fact]
     public void TeraSniffer_UsesMirrorSocketPath_NotPacketSnifferPath()
     {
-        var source = File.ReadAllText(
-            Path.Combine(
-                AppContext.BaseDirectory,
-                "..",
-                "..",
-                "..",
-                "..",
-                "DamageMeter.Sniffing",
-                "TeraSniffer.cs"
-            )
-        );
+        var source = File.ReadAllText(ProjectPath("DamageMeter.Sniffing", "TeraSniffer.cs"));
 
         Assert.Contains("_socketHost = \"127.0.0.1\"", source);
         Assert.Contains("ConnectToMirrorAsync(CancellationToken token)", source);
@@ -619,18 +609,40 @@ public class SmokeTests
     }
 
     [Fact]
-    public void CombatNotificationCheckbox_RendersItsCheckedStateWithoutATransition()
+    public void CombatNotificationCategoryRows_AreNamedInWordsNotInEnumIdentifiers()
+    {
+        // The two categories the shipped events-common.xml really uses are translated, so they are
+        // checked against the resource rather than against an English string.
+        Assert.Equal(Lang.LP.CombatNotifyCategoryCrystalBind,
+            DamageMeter.UI.Windows.CombatNotificationRows.CategoryName(Tera.Game.HotDot.Types.CrystalBind));
+        Assert.Equal(Lang.LP.CombatNotifyCategoryCombatCrystalBind,
+            DamageMeter.UI.Windows.CombatNotificationRows.CategoryName(Tera.Game.HotDot.Types.CCrystalBind));
+        Assert.False(string.IsNullOrWhiteSpace(Lang.LP.CombatNotifyCategoryCrystalBind));
+        Assert.DoesNotContain("CrystalBind",
+            DamageMeter.UI.Windows.CombatNotificationRows.CategoryName(Tera.Game.HotDot.Types.CCrystalBind));
+
+        // Anything a user puts in their own events file at least stops being one run-together word.
+        Assert.Equal("Mov spd in combat", DamageMeter.UI.Windows.CombatNotificationRows.CategoryName(Tera.Game.HotDot.Types.MovSpdInCombat));
+        Assert.Equal("Max HP", DamageMeter.UI.Windows.CombatNotificationRows.CategoryName(Tera.Game.HotDot.Types.MaxHP));
+        Assert.Equal("PVP atk", DamageMeter.UI.Windows.CombatNotificationRows.CategoryName(Tera.Game.HotDot.Types.PVPAtk));
+    }
+
+    [Fact]
+    public void CombatNotificationCheckbox_KeepsItsCheckedStateInTriggerSetters()
     {
         var checkboxSource = File.ReadAllText(ProjectPath("DamageMeter.UI", "Controls", "CheckboxSetting.xaml"));
 
-        // The check mark used to come only from the trigger's EnterActions storyboard, which never
-        // runs for a control that is built already checked - every checked row in an ItemsControl
-        // looked like it had no checkbox at all.
+        // The checked look must come from setters, because the EnterActions storyboard next to them
+        // only runs on a false -> true transition, which never happens for a control that is built
+        // already checked - as every row of an ItemsControl is.
         Assert.Contains("<Setter Property=\"Opacity\" TargetName=\"optionMark\" Value=\"1\" />", checkboxSource);
         Assert.DoesNotContain("<!--<Setter Property=\"Opacity\" TargetName=\"optionMark\" Value=\"1\" />-->", checkboxSource);
 
         // A long label must not grow over the checkbox either.
         Assert.Contains("TextTrimming=\"CharacterEllipsis\"", checkboxSource);
+
+        // Whether the thing is actually painted is a question for CheckboxSettingRenderTests: this
+        // assertion held while every checked row in the Events tab rendered nothing at all.
     }
 
     [Fact]
@@ -788,16 +800,22 @@ public class SmokeTests
         Assert.False(bool.Parse(reloadedTarget.Attribute("active")!.Value));
     }
 
-    private static string ProjectPath(params string[] parts)
+    /// <summary>
+    /// A path inside the repository. Found by walking up to the folder that holds Tera.sln rather
+    /// than by counting ".." segments, because how deep the test binaries sit changes with the
+    /// project's target framework and runtime identifier.
+    /// </summary>
+    internal static string ProjectPath(params string[] parts)
     {
-        var pathParts = new List<string>
+        var root = AppContext.BaseDirectory;
+        while (root != null && !File.Exists(Path.Combine(root, "Tera.sln")))
         {
-            AppContext.BaseDirectory,
-            "..",
-            "..",
-            "..",
-            "..",
-        };
+            root = Path.GetDirectoryName(root.TrimEnd(Path.DirectorySeparatorChar));
+        }
+
+        Assert.True(root != null, $"No Tera.sln above {AppContext.BaseDirectory}.");
+
+        var pathParts = new List<string> { root! };
         pathParts.AddRange(parts);
 
         return Path.GetFullPath(Path.Combine(pathParts.ToArray()));

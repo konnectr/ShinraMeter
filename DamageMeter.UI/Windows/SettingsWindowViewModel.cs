@@ -402,6 +402,29 @@ namespace DamageMeter.UI.Windows
                 if (Data.PlayerColor == value) return;
                 Data.PlayerColor = value;
                 NotifyPropertyChanged();
+                NotifyPropertyChanged(nameof(SelfBrush));
+            }
+        }
+
+        /// <summary>
+        /// <see cref="SelfColor"/> as a brush, for styles that hand the accent colour to a control.
+        /// <para>
+        /// A &lt;SolidColorBrush Color="{Binding SelfColor}"/&gt; written inside a Setter.Value can only
+        /// reach the colour through the DataContext of the element the style lands on. That is this
+        /// view model for a control sitting directly in the window, but it is the row's own item view
+        /// model for a control inside an ItemsControl DataTemplate - the binding fails there and the
+        /// brush keeps SolidColorBrush's default, which is fully transparent. Binding the setter to
+        /// this property from the element instead (RelativeSource AncestorType=Window) works the same
+        /// everywhere, because it does not depend on the local DataContext.
+        /// </para>
+        /// </summary>
+        public Brush SelfBrush
+        {
+            get
+            {
+                var brush = new SolidColorBrush(SelfColor);
+                brush.Freeze();
+                return brush;
             }
         }
         public Color DpsColor

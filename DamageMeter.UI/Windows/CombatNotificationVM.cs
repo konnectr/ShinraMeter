@@ -9,6 +9,8 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
+using System.Text;
+using System.Windows;
 using System.Windows.Input;
 using System.Windows.Media.Imaging;
 using Tera.Game;
@@ -53,6 +55,17 @@ namespace DamageMeter.UI.Windows
 
         public string Tooltip { get; }
         public BitmapImage Icon { get; }
+
+        /// <summary>
+        /// False for a row that has no game icon of its own - an effect category, or an event with no
+        /// id at all. Those used to show the empty 1x1 bitmap on the dark icon plate, which read as a
+        /// black square; the template draws a neutral glyph instead, keeping the same alignment.
+        /// </summary>
+        public bool HasIcon { get; }
+
+        public Visibility IconVisibility => HasIcon ? Visibility.Visible : Visibility.Collapsed;
+        public Visibility IconPlaceholderVisibility => HasIcon ? Visibility.Collapsed : Visibility.Visible;
+
         public bool CanTest => _actions.OfType<NotifyAction>().Any();
         public ICommand TestCommand { get; }
 
@@ -83,6 +96,9 @@ namespace DamageMeter.UI.Windows
             Details = BuildDetails(typeLabel, token);
             Tooltip = BuildTooltip(ev, name, Details);
             Icon = LoadIcon(iconName);
+            // GetImage answers a 1x1 placeholder when it has nothing, so an icon that is really there
+            // is the only one wider than a single pixel.
+            HasIcon = Icon is { PixelWidth: > 1 };
             TestCommand = new RelayCommand(_ => Test());
 
             _toggle.Changed += () => NotifyPropertyChanged(nameof(IsOn));
@@ -98,9 +114,12 @@ namespace DamageMeter.UI.Windows
         private static string BuildDetails(string typeLabel, string token)
         {
             if (string.IsNullOrEmpty(token)) { return typeLabel; }
+            // A category row is named after the effect category, so the raw name stays on the second
+            // line: two rows of the same event ("crystal bind" and "combat crystal bind") would read
+            // the same otherwise.
             return int.TryParse(token, NumberStyles.Integer, CultureInfo.InvariantCulture, out _)
                 ? $"{typeLabel}  ·  ID {token}"
-                : $"{typeLabel}  ·  {LP.CombatNotifyCategory}";
+                : $"{typeLabel}  ·  {LP.CombatNotifyCategory} {token}";
         }
 
         private static string BuildTooltip(Event ev, string name, string details)
@@ -345,8 +364,49 @@ namespace DamageMeter.UI.Windows
 
             foreach (var type in ev.Types)
             {
-                yield return new CombatNotificationVM(ev, actions, toggle, type.ToString(), 0, type.ToString(), typeLabel, null);
+                yield return new CombatNotificationVM(ev, actions, toggle, type.ToString(), 0, CategoryName(type), typeLabel, null);
             }
+        }
+
+        /// <summary>
+        /// Readable name of an effect category row. These are <see cref="HotDot.Types"/> members, so
+        /// the raw value is a code identifier ("CCrystalBind"); the ones the shipped events use get a
+        /// translated name, everything else at least gets split into words.
+        /// </summary>
+        public static string CategoryName(HotDot.Types type)
+        {
+            return type switch
+            {
+                HotDot.Types.CrystalBind => LP.CombatNotifyCategoryCrystalBind,
+                HotDot.Types.CCrystalBind => LP.CombatNotifyCategoryCombatCrystalBind,
+                _ => Humanize(type.ToString())
+            };
+        }
+
+        /// <summary>"MovSpdInCombat" -&gt; "Mov spd in combat", "PVPAtk" -&gt; "PVP atk".</summary>
+        private static string Humanize(string identifier)
+        {
+            if (string.IsNullOrEmpty(identifier)) { return identifier; }
+
+            var text = new StringBuilder(identifier.Length + 8);
+            for (var i = 0; i < identifier.Length; i++)
+            {
+                var c = identifier[i];
+                var startsWord = i > 0 && char.IsUpper(c) &&
+                                 (!char.IsUpper(identifier[i - 1]) ||
+                                  (i + 1 < identifier.Length && char.IsLower(identifier[i + 1])));
+
+                if (startsWord)
+                {
+                    text.Append(' ');
+                    // Only the first word keeps its capital; the rest read as one sentence, except
+                    // acronyms, which stay as they are.
+                    text.Append(i + 1 < identifier.Length && char.IsUpper(identifier[i + 1]) ? c : char.ToLowerInvariant(c));
+                }
+                else { text.Append(c); }
+            }
+
+            return text.ToString();
         }
 
         private static IEnumerable<CombatNotificationVM> BuildCooldownRows(CooldownEvent ev, List<DataAction> actions, Action onToggled)

@@ -1000,4 +1000,10 @@ Reset and paused until map change or relog.</value>
   <data name="CombatNotifyCategory" xml:space="preserve">
     <value>Effect category</value>
   </data>
+  <data name="CombatNotifyCategoryCrystalBind" xml:space="preserve">
+    <value>Crystal bind</value>
+  </data>
+  <data name="CombatNotifyCategoryCombatCrystalBind" xml:space="preserve">
+    <value>Combat crystal bind</value>
+  </data>
 </root>
