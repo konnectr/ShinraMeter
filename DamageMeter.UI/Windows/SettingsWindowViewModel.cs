@@ -13,6 +13,7 @@ using System.Windows.Media;
 using DamageMeter.UI.EventsEditor;
 using Data.Actions.Notify;
 using Data.Actions.Notify.SoundElements;
+using Data.Events;
 using Lang;
 using Tera.Game;
 using Tera.RichPresence;
@@ -1096,6 +1097,79 @@ namespace DamageMeter.UI.Windows
 
         public ToastViewModel ToastData { get; }
 
+        /// <summary>
+        /// One row per combat event currently loaded (events-common.xml + events-&lt;class&gt;.xml),
+        /// backing the "Combat notifications" opt-out list in the Events tab.
+        /// </summary>
+        public SynchronizedObservableCollection<CombatNotificationVM> CombatNotifications { get; } =
+            new SynchronizedObservableCollection<CombatNotificationVM>();
+
+        /// <summary>True once a combat toggle was flipped, so the settings window only rewrites the
+        /// events files when something actually changed.</summary>
+        public bool CombatNotificationsChanged { get; private set; }
+
+        public Visibility ClassEventsHintVisibility =>
+            BasicTeraData.Instance.EventsData.CurrentClass == PlayerClass.Common ? Visibility.Visible : Visibility.Collapsed;
+
+        public Visibility NoCombatNotificationsVisibility =>
+            CombatNotifications.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
+
+        /// <summary>
+        /// Rebuilds the combat notification rows. Called when the settings window is shown, since the
+        /// events editor may have changed them and logging in swaps the class specific event set.
+        /// </summary>
+        public void RefreshCombatNotifications()
+        {
+            var eventsData = BasicTeraData.Instance.EventsData;
+            var rows = new List<CombatNotificationVM>();
+
+            foreach (var source in new[] { eventsData.EventsCommon, eventsData.EventsClass })
+            {
+                if (source == null) { continue; }
+                // EventsClass is swapped wholesale on login, so snapshot before enumerating.
+                List<KeyValuePair<Data.Events.Event, List<Data.Actions.Action>>> snapshot;
+                try { snapshot = source.ToList(); }
+                catch (InvalidOperationException) { continue; }
+
+                foreach (var entry in snapshot)
+                {
+                    // The AFK template is already covered by the per-kind checkboxes above.
+                    if (entry.Key is CommonAFKEvent) { continue; }
+                    rows.Add(new CombatNotificationVM(entry.Key, entry.Value, OnCombatNotificationToggled));
+                }
+            }
+
+            CombatNotifications.ReplaceWith(rows.OrderBy(x => x.Label, StringComparer.CurrentCultureIgnoreCase));
+            NotifyPropertyChanged(nameof(CombatNotifications));
+            NotifyPropertyChanged(nameof(ClassEventsHintVisibility));
+            NotifyPropertyChanged(nameof(NoCombatNotificationsVisibility));
+        }
+
+        /// <summary>
+        /// The notify processor iterates collections that were filtered by Active at load time, so
+        /// they have to be rebuilt for a toggle to take effect without a restart.
+        /// </summary>
+        private void OnCombatNotificationToggled()
+        {
+            CombatNotificationsChanged = true;
+            try { BasicTeraData.Instance.EventsData.RefreshActiveEvents(); }
+            catch (Exception ex) { Debug.WriteLine($"Failed to refresh Shinra combat events: {ex}"); }
+        }
+
+        /// <summary>
+        /// Persists combat toggles through the events files, so the events editor stays consistent.
+        /// </summary>
+        public void SaveCombatNotifications()
+        {
+            if (!CombatNotificationsChanged) { return; }
+            try
+            {
+                BasicTeraData.Instance.EventsData.Save();
+                CombatNotificationsChanged = false;
+            }
+            catch (Exception ex) { Debug.WriteLine($"Failed to persist Shinra combat events: {ex}"); }
+        }
+
 
         /// <summary>
         /// Shows a sample popup through the real notification pipeline so the user can see what
@@ -1228,6 +1302,8 @@ namespace DamageMeter.UI.Windows
                 new MockPlayerViewModel("No.Broler", PlayerClass.Lancer),
                 new MockPlayerViewModel("Priest.Kek", PlayerClass.Mystic)
             };
+
+            RefreshCombatNotifications();
         }
 
 

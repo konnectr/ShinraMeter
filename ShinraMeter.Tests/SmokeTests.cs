@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Xml.Linq;
 using Data;
 using Data.Actions.Notify.SoundElements;
@@ -525,6 +526,88 @@ public class SmokeTests
         Assert.Contains("{Binding NotifyVanguardCredits, Mode=TwoWay}", eventsTab);
 
         Assert.Contains("App.HudContainer.Notifications.AddNotification(", vmSource);
+    }
+
+    [Fact]
+    public void CombatNotifications_AreListedWithPerEventTogglesInTheEventsTab()
+    {
+        var settingsSource = File.ReadAllText(ProjectPath("DamageMeter.UI", "Windows", "SettingsWindow.xaml"));
+        var vmSource = File.ReadAllText(ProjectPath("DamageMeter.UI", "Windows", "SettingsWindowViewModel.cs"));
+        var rowSource = File.ReadAllText(ProjectPath("DamageMeter.UI", "Windows", "CombatNotificationVM.cs"));
+
+        var eventsTabStart = settingsSource.IndexOf("<!--Events-->", StringComparison.Ordinal);
+        var richPresenceTabStart = settingsSource.IndexOf("<!--Rich presence-->", StringComparison.Ordinal);
+        Assert.True(eventsTabStart >= 0, "Events tab marker was not found.");
+        Assert.True(richPresenceTabStart > eventsTabStart, "Rich presence tab should follow the events tab.");
+
+        var eventsTab = settingsSource.Substring(eventsTabStart, richPresenceTabStart - eventsTabStart);
+
+        // The combat section lives below the per-kind AFK checkboxes, inside the same scroller.
+        var afkSectionStart = eventsTab.IndexOf("lang:LP.NotificationsSection", StringComparison.Ordinal);
+        var combatSectionStart = eventsTab.IndexOf("lang:LP.CombatNotificationsSection", StringComparison.Ordinal);
+        Assert.True(combatSectionStart > afkSectionStart, "Combat notifications should follow the AFK notification checkboxes.");
+
+        Assert.Contains("lang:LP.CombatNotificationsDescription", eventsTab);
+        Assert.Contains("lang:LP.CombatNotificationsClassHint", eventsTab);
+        Assert.Contains("ItemsSource=\"{Binding CombatNotifications}\"", eventsTab);
+        Assert.Contains("IsOn=\"{Binding IsOn, Mode=TwoWay}\"", eventsTab);
+        Assert.Contains("SettingName=\"{Binding Label}\"", eventsTab);
+        Assert.Contains("Command=\"{Binding TestCommand}\"", eventsTab);
+
+        // Rows come from the loaded event sets, minus the AFK template already covered above.
+        Assert.Contains("public void RefreshCombatNotifications()", vmSource);
+        Assert.Contains("eventsData.EventsCommon, eventsData.EventsClass", vmSource);
+        Assert.Contains("if (entry.Key is CommonAFKEvent) { continue; }", vmSource);
+
+        // Each row exposes a readable label and replays the event's own notify action.
+        Assert.Contains("LP.CombatNotifyCooldownReset", rowSource);
+        Assert.Contains("LP.CombatNotifyMissing", rowSource);
+        Assert.Contains("HotDotDatabase?.Get(id)?.Name", rowSource);
+        Assert.Contains("App.HudContainer.Notifications.AddNotification(", rowSource);
+    }
+
+    [Fact]
+    public void CombatNotificationToggles_RefreshLiveCollectionsAndPersistThroughEventsData()
+    {
+        var eventsDataSource = File.ReadAllText(ProjectPath("Data", "EventsData.cs"));
+        var vmSource = File.ReadAllText(ProjectPath("DamageMeter.UI", "Windows", "SettingsWindowViewModel.cs"));
+        var windowSource = File.ReadAllText(ProjectPath("DamageMeter.UI", "Windows", "SettingsWindow.xaml.cs"));
+
+        // The notify processor iterates collections filtered by Active at load time, so a toggle has
+        // to rebuild them instead of waiting for a restart.
+        Assert.Contains("public void RefreshActiveEvents()", eventsDataSource);
+        Assert.Contains("public PlayerClass CurrentClass { get; private set; }", eventsDataSource);
+        Assert.Contains("BasicTeraData.Instance.EventsData.RefreshActiveEvents();", vmSource);
+
+        // Class events have their own file, otherwise their toggles would be lost on the next Load().
+        Assert.Contains("SaveEvents(EventsCommon, \"events-common.xml\");", eventsDataSource);
+        Assert.Contains("SaveEvents(EventsClass, \"events-\" + CurrentClass.ToString().ToLowerInvariant() + \".xml\");", eventsDataSource);
+
+        // Saved on settings close, and the list is rebuilt every time the window is shown.
+        Assert.Contains("SaveCombatNotifications();", windowSource);
+        Assert.Contains("RefreshCombatNotifications();", windowSource);
+        Assert.Contains("BasicTeraData.Instance.EventsData.Save();", vmSource);
+    }
+
+    [Fact]
+    public void CombatEventDefaults_StoreTheToggleAsAnActiveAttributePerEvent()
+    {
+        var xml = XDocument.Parse(File.ReadAllText(ProjectPath("Lang", "Resources", "en", "events-common.xml")));
+
+        var combatEvents = xml.Root!.Elements()
+            .Where(x => x.Name.LocalName is "abnormality" or "cooldown")
+            .ToList();
+
+        Assert.NotEmpty(combatEvents);
+
+        var target = combatEvents[0];
+        target.SetAttributeValue("active", false);
+
+        var reloaded = XDocument.Parse(xml.ToString());
+        var reloadedTarget = reloaded.Root!.Elements()
+            .First(x => x.Name.LocalName is "abnormality" or "cooldown");
+
+        Assert.False(bool.Parse(reloadedTarget.Attribute("active")!.Value));
     }
 
     private static string ProjectPath(params string[] parts)

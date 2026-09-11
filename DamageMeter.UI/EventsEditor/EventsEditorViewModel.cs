@@ -178,6 +178,9 @@ namespace DamageMeter.UI
         private void Apply()
         {
             _data.Save();
+            // Active flags edited here only reach the notify processor once the collections it
+            // iterates are rebuilt.
+            _data.RefreshActiveEvents();
         }
 
         private void Load()

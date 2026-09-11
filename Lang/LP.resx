@@ -940,4 +940,58 @@ Reset and paused until map change or relog.</value>
   <data name="NotifyVanguardCredits" xml:space="preserve">
     <value>Vanguard credits near cap</value>
   </data>
+  <data name="CombatNotificationsSection" xml:space="preserve">
+    <value>Combat notifications</value>
+  </data>
+  <data name="CombatNotificationsDescription" xml:space="preserve">
+    <value>Choose which in-combat alerts you want to receive (missing buffs, cooldown resets, Enrage...). Their text, sound and triggers stay configurable in the events editor.</value>
+  </data>
+  <data name="CombatNotificationsClassHint" xml:space="preserve">
+    <value>Class-specific events appear after you log in.</value>
+  </data>
+  <data name="CombatNotificationsEmpty" xml:space="preserve">
+    <value>No combat events are loaded.</value>
+  </data>
+  <data name="CombatNotifyMissing" xml:space="preserve">
+    <value>Missing</value>
+  </data>
+  <data name="CombatNotifyExpiring" xml:space="preserve">
+    <value>Expiring</value>
+  </data>
+  <data name="CombatNotifyApplied" xml:space="preserve">
+    <value>Applied</value>
+  </data>
+  <data name="CombatNotifyRemoved" xml:space="preserve">
+    <value>Removed</value>
+  </data>
+  <data name="CombatNotifyCooldown" xml:space="preserve">
+    <value>Cooldown</value>
+  </data>
+  <data name="CombatNotifyCooldownReset" xml:space="preserve">
+    <value>Cooldown reset</value>
+  </data>
+  <data name="CombatNotifyAnySkill" xml:space="preserve">
+    <value>Any skill</value>
+  </data>
+  <data name="CombatNotifyNoAbnormality" xml:space="preserve">
+    <value>Any effect</value>
+  </data>
+  <data name="CombatNotifyPriority" xml:space="preserve">
+    <value>Priority</value>
+  </data>
+  <data name="CombatNotifyInGame" xml:space="preserve">
+    <value>Only while TERA is focused</value>
+  </data>
+  <data name="CombatNotifyOutOfGame" xml:space="preserve">
+    <value>Only while TERA is not focused</value>
+  </data>
+  <data name="CombatNotifyOutOfCombat" xml:space="preserve">
+    <value>Also out of combat</value>
+  </data>
+  <data name="CombatNotifyTarget" xml:space="preserve">
+    <value>Target</value>
+  </data>
+  <data name="CombatNotifyTestPlayer" xml:space="preserve">
+    <value>You</value>
+  </data>
 </root>

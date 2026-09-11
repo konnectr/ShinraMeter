@@ -92,6 +92,8 @@ namespace DamageMeter.UI.Windows
         {
             BasicTeraData.Instance.WindowData.Save();
             BasicTeraData.Instance.HotkeysData.Save();
+            // Combat notification toggles live in the events files, not window.xml.
+            (DataContext as SettingsWindowViewModel)?.SaveCombatNotifications();
             Hide();
             _visible = false;
         }
@@ -109,6 +111,8 @@ namespace DamageMeter.UI.Windows
             if (_visible) return;
             _visible = true;
             _window ??= new SettingsWindow(); // it should never be the case, as the window is created only once via Create() method at startup
+            // The events editor may have changed events, and logging in swaps in the class specific set.
+            (_window.DataContext as SettingsWindowViewModel)?.RefreshCombatNotifications();
             _window.Show();
             _window.Activate();
         }

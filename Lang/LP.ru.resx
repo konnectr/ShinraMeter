@@ -884,4 +884,58 @@
   <data name="NotifyVanguardCredits" xml:space="preserve">
     <value>Кредиты Авангарда близки к лимиту</value>
   </data>
+  <data name="CombatNotificationsSection" xml:space="preserve">
+    <value>Боевые уведомления</value>
+  </data>
+  <data name="CombatNotificationsDescription" xml:space="preserve">
+    <value>Выберите, какие боевые уведомления вы хотите получать (отсутствующие баффы, сброс отката, Ярость и т.д.). Текст, звук и условия срабатывания настраиваются в редакторе событий.</value>
+  </data>
+  <data name="CombatNotificationsClassHint" xml:space="preserve">
+    <value>События вашего класса появятся после входа в игру.</value>
+  </data>
+  <data name="CombatNotificationsEmpty" xml:space="preserve">
+    <value>Боевые события не загружены.</value>
+  </data>
+  <data name="CombatNotifyMissing" xml:space="preserve">
+    <value>Отсутствует</value>
+  </data>
+  <data name="CombatNotifyExpiring" xml:space="preserve">
+    <value>Заканчивается</value>
+  </data>
+  <data name="CombatNotifyApplied" xml:space="preserve">
+    <value>Наложено</value>
+  </data>
+  <data name="CombatNotifyRemoved" xml:space="preserve">
+    <value>Снято</value>
+  </data>
+  <data name="CombatNotifyCooldown" xml:space="preserve">
+    <value>Откат</value>
+  </data>
+  <data name="CombatNotifyCooldownReset" xml:space="preserve">
+    <value>Сброс отката</value>
+  </data>
+  <data name="CombatNotifyAnySkill" xml:space="preserve">
+    <value>Любой навык</value>
+  </data>
+  <data name="CombatNotifyNoAbnormality" xml:space="preserve">
+    <value>Любой эффект</value>
+  </data>
+  <data name="CombatNotifyPriority" xml:space="preserve">
+    <value>Приоритет</value>
+  </data>
+  <data name="CombatNotifyInGame" xml:space="preserve">
+    <value>Только когда TERA в фокусе</value>
+  </data>
+  <data name="CombatNotifyOutOfGame" xml:space="preserve">
+    <value>Только когда TERA не в фокусе</value>
+  </data>
+  <data name="CombatNotifyOutOfCombat" xml:space="preserve">
+    <value>Также вне боя</value>
+  </data>
+  <data name="CombatNotifyTarget" xml:space="preserve">
+    <value>Цель</value>
+  </data>
+  <data name="CombatNotifyTestPlayer" xml:space="preserve">
+    <value>Вы</value>
+  </data>
 </root>

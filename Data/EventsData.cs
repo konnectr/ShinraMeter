@@ -73,27 +73,28 @@ namespace Data
                 return;
             }
             EventsClass = new Dictionary<Event, List<Action>>();
-            MissingAbnormalities = new Dictionary<AbnormalityEvent, List<Action>>();
-            AddedRemovedAbnormalities = new Dictionary<AbnormalityEvent, List<Action>>();
-            Cooldown = new Dictionary<Event, List<Action>>();
-            Events = new Dictionary<Event, List<Action>>();
-            AFK = null;
             ParseAbnormalities(EventsCommon, xml);
             ParseCooldown(EventsCommon, xml);
             ParseCommonAFK(EventsCommon, xml);
-            AssociateEvent(EventsCommon);
+            RefreshActiveEvents();
         }
 
         // loaded from file - made public for VM
         public Dictionary<Event, List<Action>> EventsCommon { get; }
-        public Dictionary<Event, List<Action>> EventsClass { get; set; }
+        public Dictionary<Event, List<Action>> EventsClass { get; set; } = new Dictionary<Event, List<Action>>();
 
         // used by NotifyProcessor
-        public Dictionary<AbnormalityEvent, List<Action>> MissingAbnormalities { get; private set; }
-        public Dictionary<AbnormalityEvent, List<Action>> AddedRemovedAbnormalities { get; private set; }
-        public Dictionary<Event, List<Action>> Events { get; private set; }
-        public Dictionary<Event, List<Action>> Cooldown { get; private set; }
+        public Dictionary<AbnormalityEvent, List<Action>> MissingAbnormalities { get; private set; } = new Dictionary<AbnormalityEvent, List<Action>>();
+        public Dictionary<AbnormalityEvent, List<Action>> AddedRemovedAbnormalities { get; private set; } = new Dictionary<AbnormalityEvent, List<Action>>();
+        public Dictionary<Event, List<Action>> Events { get; private set; } = new Dictionary<Event, List<Action>>();
+        public Dictionary<Event, List<Action>> Cooldown { get; private set; } = new Dictionary<Event, List<Action>>();
         public Tuple<Event, List<Action>> AFK { get; private set; }
+
+        /// <summary>
+        /// Class whose events-&lt;class&gt;.xml is currently loaded into <see cref="EventsClass"/>.
+        /// Stays <see cref="PlayerClass.Common"/> until the meter user logs in.
+        /// </summary>
+        public PlayerClass CurrentClass { get; private set; } = PlayerClass.Common;
 
 
         public void Load(PlayerClass playerClass)
@@ -117,44 +118,85 @@ namespace Data
                 return;
             }
             EventsClass = new Dictionary<Event, List<Action>>();
-            MissingAbnormalities = new Dictionary<AbnormalityEvent, List<Action>>();
-            AddedRemovedAbnormalities = new Dictionary<AbnormalityEvent, List<Action>>();
-            Cooldown = new Dictionary<Event, List<Action>>();
-            Events = new Dictionary<Event, List<Action>>();
-            AFK = null;
             ParseAbnormalities(EventsClass, xml);
             ParseCooldown(EventsClass, xml);
-            AssociateEvent(EventsCommon, playerClass);
-            AssociateEvent(EventsClass, playerClass);
+            CurrentClass = playerClass;
+            RefreshActiveEvents();
         }
 
-        private void AssociateEvent(Dictionary<Event, List<Action>> rootEvents, PlayerClass playerClass = PlayerClass.Common)
+        /// <summary>
+        /// The collections NotifyProcessor iterates are built once, at load time, from the events whose
+        /// Active flag was set then. Toggling Active later (Events editor, or the combat notification
+        /// checkboxes in the settings window) would otherwise only take effect after a restart, so
+        /// rebuild them from the full EventsCommon/EventsClass sets. Event instances are reused, so
+        /// per-event state such as NextChecks survives.
+        /// </summary>
+        public void RefreshActiveEvents()
+        {
+            if (EventsCommon == null) { return; }
+
+            var active = new ActiveEvents();
+            AssociateEvent(EventsCommon, CurrentClass, active);
+            if (EventsClass != null) { AssociateEvent(EventsClass, CurrentClass, active); }
+
+            // The packet thread enumerates these through the properties, so publish fully built
+            // collections by reference swap instead of clearing and refilling the live ones.
+            MissingAbnormalities = active.MissingAbnormalities;
+            AddedRemovedAbnormalities = active.AddedRemovedAbnormalities;
+            Cooldown = active.Cooldown;
+            Events = active.Events;
+            AFK = active.AFK;
+        }
+
+        private sealed class ActiveEvents
+        {
+            public readonly Dictionary<AbnormalityEvent, List<Action>> MissingAbnormalities = new Dictionary<AbnormalityEvent, List<Action>>();
+            public readonly Dictionary<AbnormalityEvent, List<Action>> AddedRemovedAbnormalities = new Dictionary<AbnormalityEvent, List<Action>>();
+            public readonly Dictionary<Event, List<Action>> Cooldown = new Dictionary<Event, List<Action>>();
+            public readonly Dictionary<Event, List<Action>> Events = new Dictionary<Event, List<Action>>();
+            public Tuple<Event, List<Action>> AFK;
+        }
+
+        private static void AssociateEvent(Dictionary<Event, List<Action>> rootEvents, PlayerClass playerClass, ActiveEvents target)
         {
             foreach (var e in rootEvents)
             {
                 if (!e.Key.Active) { continue; }
                 if (playerClass != PlayerClass.Common && e.Key.IgnoreClasses.Contains(playerClass)) { continue; }
-                Events.Add(e.Key, e.Value);
+                target.Events.Add(e.Key, e.Value);
                 var evAbnormalities = e.Key as AbnormalityEvent;
                 if (evAbnormalities != null)
                 {
                     if (evAbnormalities.Trigger == AbnormalityTriggerType.MissingDuringFight || evAbnormalities.Trigger == AbnormalityTriggerType.Ending)
                     {
-                        MissingAbnormalities.Add(evAbnormalities, e.Value);
+                        target.MissingAbnormalities.Add(evAbnormalities, e.Value);
                     }
-                    else { AddedRemovedAbnormalities.Add(evAbnormalities, e.Value); }
+                    else { target.AddedRemovedAbnormalities.Add(evAbnormalities, e.Value); }
                 }
 
                 var evCooldown = e.Key as CooldownEvent;
-                if (evCooldown != null) { Cooldown.Add(e.Key, e.Value); }
+                if (evCooldown != null) { target.Cooldown.Add(e.Key, e.Value); }
 
                 var evAFK = e.Key as CommonAFKEvent;
-                if (evAFK != null) { AFK = new Tuple<Event, List<Action>>(e.Key, e.Value); }
+                if (evAFK != null) { target.AFK = new Tuple<Event, List<Action>>(e.Key, e.Value); }
             }
         }
 
         public void Save()
         {
+            SaveEvents(EventsCommon, "events-common.xml");
+            // Class events are editable too (their Active flags back the "Combat notifications"
+            // checkboxes), so they have to round-trip to their own file or the toggles would be
+            // silently reverted by the next Load().
+            if (CurrentClass != PlayerClass.Common && EventsClass != null && EventsClass.Count > 0)
+            {
+                SaveEvents(EventsClass, "events-" + CurrentClass.ToString().ToLowerInvariant() + ".xml");
+            }
+        }
+
+        private void SaveEvents(Dictionary<Event, List<Action>> events, string fileName)
+        {
+            if (events == null) { return; }
             var eventsDir = Path.Combine(_basicData.ResourceDirectory, "config/events");
             Directory.CreateDirectory(eventsDir);
 
@@ -162,36 +204,26 @@ namespace Data
                 new XAttribute("active", true),
                 new XAttribute("priority", 5));
 
-            foreach (var eventActions in EventsCommon)
+            foreach (var eventActions in events)
             {
                 root.Add(SerializeEvent(eventActions.Key, eventActions.Value));
             }
 
             var xml = new XDocument(new XDeclaration("1.0", "utf-8", "yes"), root);
-            var file = Path.Combine(eventsDir, "events-common.xml");
+            var file = Path.Combine(eventsDir, fileName);
             File.WriteAllText(file, xml.Declaration + Environment.NewLine + xml, Encoding.UTF8);
         }
 
         public void AddCommonEvent(Event ev, List<Action> actions)
         {
             EventsCommon.Add(ev, actions);
-            if (ev.Active)
-            {
-                AssociateEvent(new Dictionary<Event, List<Action>> { { ev, actions } });
-            }
+            RefreshActiveEvents();
         }
 
         public void RemoveCommonEvent(Event ev)
         {
             if (!EventsCommon.Remove(ev)) { return; }
-            Events.Remove(ev);
-            Cooldown.Remove(ev);
-            if (ev is AbnormalityEvent abnormality)
-            {
-                MissingAbnormalities.Remove(abnormality);
-                AddedRemovedAbnormalities.Remove(abnormality);
-            }
-            if (AFK?.Item1 == ev) { AFK = null; }
+            RefreshActiveEvents();
         }
 
         public void ResetCommonToDefault()
@@ -202,17 +234,12 @@ namespace Data
             File.WriteAllText(file, LP.events_common, Encoding.UTF8);
 
             EventsCommon.Clear();
-            MissingAbnormalities = new Dictionary<AbnormalityEvent, List<Action>>();
-            AddedRemovedAbnormalities = new Dictionary<AbnormalityEvent, List<Action>>();
-            Cooldown = new Dictionary<Event, List<Action>>();
-            Events = new Dictionary<Event, List<Action>>();
-            AFK = null;
 
             var xml = XDocument.Parse(LP.events_common);
             ParseAbnormalities(EventsCommon, xml);
             ParseCooldown(EventsCommon, xml);
             ParseCommonAFK(EventsCommon, xml);
-            AssociateEvent(EventsCommon);
+            RefreshActiveEvents();
         }
 
         private XElement SerializeEvent(Event ev, List<Action> actions)
