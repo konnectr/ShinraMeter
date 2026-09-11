@@ -634,31 +634,70 @@
                                        Opacity=".7"
                                        Visibility="{Binding NoCombatNotificationsVisibility}"
                                        Margin="32 0 0 8" />
+                            <!-- Mixed list: sub-headers and id rows pick their template by item type. -->
                             <ItemsControl ItemsSource="{Binding CombatNotifications}"
                                           IsEnabled="{Binding EnableChatAndNotif}">
-                                <ItemsControl.ItemTemplate>
-                                    <DataTemplate>
-                                        <Grid ToolTip="{Binding Details}">
+                                <ItemsControl.Resources>
+                                    <DataTemplate DataType="{x:Type local:CombatNotificationGroupVM}">
+                                        <TextBlock Style="{StaticResource DefaultTextStyle}"
+                                                   Text="{Binding Title}"
+                                                   FontWeight="Bold"
+                                                   Opacity=".75"
+                                                   Margin="32 10 0 2" />
+                                    </DataTemplate>
+                                    <DataTemplate DataType="{x:Type local:CombatNotificationVM}">
+                                        <Grid Height="38"
+                                              Background="Transparent"
+                                              ToolTip="{Binding Tooltip}">
                                             <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="Auto" />
                                                 <ColumnDefinition Width="*" />
                                                 <ColumnDefinition Width="Auto" />
+                                                <ColumnDefinition Width="Auto" />
                                             </Grid.ColumnDefinitions>
-                                            <settings:CheckboxSetting Grid.Column="0"
-                                                                      IsOn="{Binding IsOn, Mode=TwoWay}"
-                                                                      SettingName="{Binding Label}" />
-                                            <Button Grid.Column="1"
+                                            <Border Grid.Column="0"
+                                                    Width="26" Height="26"
+                                                    Margin="32 0 0 0"
+                                                    CornerRadius="3"
+                                                    VerticalAlignment="Center"
+                                                    Background="{StaticResource DarkCardColor}">
+                                                <Image Source="{Binding Icon}"
+                                                       Width="24" Height="24"
+                                                       RenderOptions.BitmapScalingMode="HighQuality" />
+                                            </Border>
+                                            <StackPanel Grid.Column="1"
+                                                        VerticalAlignment="Center"
+                                                        Margin="8 0 6 0">
+                                                <TextBlock Style="{StaticResource DefaultTextStyle}"
+                                                           Text="{Binding Name}"
+                                                           TextTrimming="CharacterEllipsis"
+                                                           Opacity=".95" />
+                                                <TextBlock Style="{StaticResource DefaultTextStyle}"
+                                                           Text="{Binding Details}"
+                                                           FontSize="10"
+                                                           Opacity=".5"
+                                                           TextTrimming="CharacterEllipsis" />
+                                            </StackPanel>
+                                            <Button Grid.Column="2"
                                                     Command="{Binding TestCommand}"
                                                     IsEnabled="{Binding CanTest}"
+                                                    Height="24"
+                                                    MinWidth="52"
                                                     HorizontalContentAlignment="Center"
                                                     VerticalAlignment="Center"
                                                     Padding="8 0"
-                                                    Margin="4 0 8 0">
+                                                    Margin="0 0 4 0">
                                                 <TextBlock Text="{x:Static lang:LP.TestNotification}"
+                                                           FontSize="11"
                                                            VerticalAlignment="Center" />
                                             </Button>
+                                            <!-- Checkbox last, so it lines up with the CheckboxSettings above. -->
+                                            <settings:CheckboxSetting Grid.Column="3"
+                                                                      VerticalAlignment="Center"
+                                                                      IsOn="{Binding IsOn, Mode=TwoWay}" />
                                         </Grid>
                                     </DataTemplate>
-                                </ItemsControl.ItemTemplate>
+                                </ItemsControl.Resources>
                             </ItemsControl>
                             <!--<Button Content="Edit events..." VerticalAlignment="Center"
                                     HorizontalAlignment="Center"

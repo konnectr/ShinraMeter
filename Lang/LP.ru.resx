@@ -938,4 +938,10 @@
   <data name="CombatNotifyTestPlayer" xml:space="preserve">
     <value>Вы</value>
   </data>
+  <data name="CombatNotificationsGroupCommon" xml:space="preserve">
+    <value>Общие</value>
+  </data>
+  <data name="CombatNotifyCategory" xml:space="preserve">
+    <value>Категория эффектов</value>
+  </data>
 </root>

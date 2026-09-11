@@ -2781,5 +2781,23 @@ namespace Lang {
                 return ResourceManager.GetString("CombatNotifyTestPlayer", resourceCulture);
             }
         }
+
+        /// <summary>
+        ///   Looks up a localized string similar to Common.
+        /// </summary>
+        public static string CombatNotificationsGroupCommon {
+            get {
+                return ResourceManager.GetString("CombatNotificationsGroupCommon", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to Effect category.
+        /// </summary>
+        public static string CombatNotifyCategory {
+            get {
+                return ResourceManager.GetString("CombatNotifyCategory", resourceCulture);
+            }
+        }
     }
 }

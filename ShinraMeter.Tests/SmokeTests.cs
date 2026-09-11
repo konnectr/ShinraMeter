@@ -5,6 +5,8 @@ using System.Linq;
 using System.Xml.Linq;
 using Data;
 using Data.Actions.Notify.SoundElements;
+using Data.Events;
+using Data.Events.Abnormality;
 using Tera;
 using Tera.Game;
 using Tera.Game.Messages;
@@ -529,7 +531,7 @@ public class SmokeTests
     }
 
     [Fact]
-    public void CombatNotifications_AreListedWithPerEventTogglesInTheEventsTab()
+    public void CombatNotifications_AreListedWithPerIdTogglesInTheEventsTab()
     {
         var settingsSource = File.ReadAllText(ProjectPath("DamageMeter.UI", "Windows", "SettingsWindow.xaml"));
         var vmSource = File.ReadAllText(ProjectPath("DamageMeter.UI", "Windows", "SettingsWindowViewModel.cs"));
@@ -551,19 +553,158 @@ public class SmokeTests
         Assert.Contains("lang:LP.CombatNotificationsClassHint", eventsTab);
         Assert.Contains("ItemsSource=\"{Binding CombatNotifications}\"", eventsTab);
         Assert.Contains("IsOn=\"{Binding IsOn, Mode=TwoWay}\"", eventsTab);
-        Assert.Contains("SettingName=\"{Binding Label}\"", eventsTab);
         Assert.Contains("Command=\"{Binding TestCommand}\"", eventsTab);
+
+        // A row is an icon, the readable name, and a dim second line with the trigger and the raw id,
+        // grouped under a sub-header per event file.
+        Assert.Contains("DataType=\"{x:Type local:CombatNotificationGroupVM}\"", eventsTab);
+        Assert.Contains("DataType=\"{x:Type local:CombatNotificationVM}\"", eventsTab);
+        Assert.Contains("Source=\"{Binding Icon}\"", eventsTab);
+        Assert.Contains("Text=\"{Binding Name}\"", eventsTab);
+        Assert.Contains("Text=\"{Binding Details}\"", eventsTab);
 
         // Rows come from the loaded event sets, minus the AFK template already covered above.
         Assert.Contains("public void RefreshCombatNotifications()", vmSource);
-        Assert.Contains("eventsData.EventsCommon, eventsData.EventsClass", vmSource);
+        Assert.Contains("AddCombatNotificationGroup(items, LP.CombatNotificationsGroupCommon, eventsData.EventsCommon);", vmSource);
+        Assert.Contains("AddCombatNotificationGroup(items, ClassDisplayName(eventsData.CurrentClass), eventsData.EventsClass);", vmSource);
         Assert.Contains("if (entry.Key is CommonAFKEvent) { continue; }", vmSource);
 
-        // Each row exposes a readable label and replays the event's own notify action.
+        // One row per id, named from the databases and replaying the event's own notify action.
         Assert.Contains("LP.CombatNotifyCooldownReset", rowSource);
         Assert.Contains("LP.CombatNotifyMissing", rowSource);
-        Assert.Contains("HotDotDatabase?.Get(id)?.Name", rowSource);
+        Assert.Contains("GameNames.AbnormalityName(id)", rowSource);
+        Assert.Contains("foreach (var id in ev.Ids.Keys)", rowSource);
         Assert.Contains("App.HudContainer.Notifications.AddNotification(", rowSource);
+    }
+
+    [Fact]
+    public void CombatNotificationNames_ResolveBeforeLoginFromTheConfiguredLanguage()
+    {
+        var namesSource = File.ReadAllText(ProjectPath("Data", "GameNames.cs"));
+
+        // BasicTeraData only fills these from TeraData once the region is known, i.e. on login.
+        Assert.Contains("var live = BasicTeraData.Instance.HotDotDatabase;", namesSource);
+        Assert.Contains("var live = BasicTeraData.Instance.SkillDatabase;", namesSource);
+        Assert.Contains("if (live != null) { return live; }", namesSource);
+
+        // Same loader classes, same data folder, resolved language with an EU-EN fallback.
+        Assert.Contains("new HotDotDatabase(DataDirectory, language)", namesSource);
+        Assert.Contains("new SkillDatabase(DataDirectory, language)", namesSource);
+        Assert.Contains("yield return \"EU-EN\";", namesSource);
+
+        // The resolver only ever picks a language whose file is actually installed.
+        Assert.Contains("if (Exists(folder, fileNamePattern, candidate))", namesSource);
+
+        // The folder the app resolves when it runs from bin has to carry that data.
+        var dataRoot = ProjectPath("DamageMeter.UI", "Resources", "data");
+        Assert.True(File.Exists(Path.Combine(dataRoot, "hotdot", "hotdot-EU-EN.tsv")), "Fallback abnormality names are missing from the runtime resources.");
+        Assert.True(File.Exists(Path.Combine(dataRoot, "skills", "skills-EU-EN.tsv")), "Fallback skill names are missing from the runtime resources.");
+        Assert.True(File.Exists(Path.Combine(dataRoot, "icons.zip")), "Row icons come from icons.zip in the runtime resources.");
+    }
+
+    [Fact]
+    public void FallbackNameDatabases_LoadFromTheRuntimeResourcesTheAppUsesWhenRunFromBin()
+    {
+        // What GameNames does before login: the same loader classes, the same folder the running exe
+        // resolves (DamageMeter.UI\Resources), the fallback language.
+        var dataRoot = ProjectPath("DamageMeter.UI", "Resources", "data") + Path.DirectorySeparatorChar;
+
+        var hotDots = new HotDotDatabase(dataRoot, "EU-EN");
+        Assert.Equal("Struthio Breast Salad", hotDots.Get(70221).Name);
+        Assert.Equal("icon_items.fallfestival_salad_tex", hotDots.Get(70221).EffectIcon);
+
+        var skills = new SkillDatabase(dataRoot, "EU-EN");
+        var archer = new RaceGenderClass(Race.Common, Gender.Common, PlayerClass.Archer);
+        Assert.False(string.IsNullOrWhiteSpace(skills.GetOrNull(archer, 80101)?.Name));
+    }
+
+    [Fact]
+    public void CombatNotificationCheckbox_RendersItsCheckedStateWithoutATransition()
+    {
+        var checkboxSource = File.ReadAllText(ProjectPath("DamageMeter.UI", "Controls", "CheckboxSetting.xaml"));
+
+        // The check mark used to come only from the trigger's EnterActions storyboard, which never
+        // runs for a control that is built already checked - every checked row in an ItemsControl
+        // looked like it had no checkbox at all.
+        Assert.Contains("<Setter Property=\"Opacity\" TargetName=\"optionMark\" Value=\"1\" />", checkboxSource);
+        Assert.DoesNotContain("<!--<Setter Property=\"Opacity\" TargetName=\"optionMark\" Value=\"1\" />-->", checkboxSource);
+
+        // A long label must not grow over the checkbox either.
+        Assert.Contains("TextTrimming=\"CharacterEllipsis\"", checkboxSource);
+    }
+
+    [Fact]
+    public void DisabledIds_RoundTripThroughTheEventsSerializer()
+    {
+        var ev = NewAbnormalityEvent(70221, 70211, 70222);
+
+        // Nothing unchecked: no attribute at all, and the notify processor sees the very instance.
+        Assert.Null(EventsData.SerializeDisabledIds(ev, EventsData.AbnormalityTokens(ev)));
+        Assert.Same(ev, EventsData.WithoutDisabledIds(ev));
+
+        ev.DisabledIds.Add("70211");
+        ev.DisabledIds.Add("999999"); // deleted from the event since it was unchecked
+        var serialized = EventsData.SerializeDisabledIds(ev, EventsData.AbnormalityTokens(ev));
+        Assert.Equal("70211", serialized);
+
+        var reloaded = NewAbnormalityEvent(70221, 70211, 70222);
+        EventsData.ParseDisabledIds(reloaded, serialized);
+
+        Assert.True(reloaded.IsIdDisabled(70211));
+        Assert.False(reloaded.IsIdDisabled(70221));
+
+        // The runtime view drops the unchecked id and nothing else.
+        var published = (AbnormalityEvent)EventsData.WithoutDisabledIds(reloaded)!;
+        Assert.NotSame(reloaded, published);
+        Assert.Equal(new[] { 70221, 70222 }, published.Ids.Keys.OrderBy(x => x).ToArray());
+        Assert.Same(reloaded.NextChecks, published.NextChecks);
+    }
+
+    [Fact]
+    public void DisabledIds_HideTheEventEntirelyWhenEveryIdIsUnchecked()
+    {
+        var ev = NewAbnormalityEvent(6001, 6003);
+        ev.DisabledIds.Add("6001");
+        ev.DisabledIds.Add("6003");
+
+        // Same thing as active="false" for the notify processor.
+        Assert.Null(EventsData.WithoutDisabledIds(ev));
+
+        var cooldown = new CooldownEvent(true, true, 5, 100200, true);
+        Assert.Same(cooldown, EventsData.WithoutDisabledIds(cooldown));
+        cooldown.DisabledIds.Add("100200");
+        Assert.Null(EventsData.WithoutDisabledIds(cooldown));
+    }
+
+    [Fact]
+    public void DisabledIds_SurviveTheEventsXmlAttributeAndItsComment()
+    {
+        var xml = XDocument.Parse(File.ReadAllText(ProjectPath("Lang", "Resources", "en", "events-common.xml")));
+        var target = xml.Root!.Elements("abnormality").First();
+        var ids = target.Element("abnormalities")!.Elements("abnormality").Select(x => x.Value).ToList();
+        Assert.True(ids.Count > 1, "Expected a shipped event with more than one abnormality id.");
+
+        target.SetAttributeValue("disabled_ids", ids[0]);
+        var reloaded = XDocument.Parse(xml.ToString());
+        var reloadedTarget = reloaded.Root!.Elements("abnormality").First();
+
+        Assert.Equal(ids[0], reloadedTarget.Attribute("disabled_ids")!.Value);
+
+        // The comment above an event is its fallback name, so the serializer writes it back out.
+        var eventsDataSource = File.ReadAllText(ProjectPath("Data", "EventsData.cs"));
+        Assert.Contains("var comment = SerializeComment(eventActions.Key.Comment);", eventsDataSource);
+        Assert.Contains("Comment = PrecedingComment(abnormality)", eventsDataSource);
+    }
+
+    private static AbnormalityEvent NewAbnormalityEvent(params int[] ids)
+    {
+        return new AbnormalityEvent(
+            true, true, 5, new List<BlackListItem>(),
+            ids.ToDictionary(x => x, _ => 0),
+            new List<HotDot.Types>(),
+            AbnormalityTargetType.Self,
+            AbnormalityTriggerType.Added,
+            0, 0, false, new List<PlayerClass>());
     }
 
     [Fact]
@@ -594,11 +735,12 @@ public class SmokeTests
     {
         var eventsDataSource = File.ReadAllText(ProjectPath("Data", "EventsData.cs"));
 
-        // Save() runs on every exit. Serializing drops the comments that are the only human readable
-        // name of each class event, so the file is only rewritten when an Active flag really moved.
-        Assert.Contains("&& ClassActiveFlagsChanged()", eventsDataSource);
-        Assert.Contains("_classActiveOnDisk = SnapshotActive(classEvents);", eventsDataSource);
-        Assert.Contains("_classActiveOnDisk = SnapshotActive(EventsClass);", eventsDataSource);
+        // Save() runs on every exit, so the file is only rewritten when a toggle - the Active flag or
+        // one of the per-id checkboxes - really moved.
+        Assert.Contains("&& ClassToggleStateChanged()", eventsDataSource);
+        Assert.Contains("_classStateOnDisk = SnapshotState(classEvents);", eventsDataSource);
+        Assert.Contains("_classStateOnDisk = SnapshotState(EventsClass);", eventsDataSource);
+        Assert.Contains("return ev.Active + \"|\" + string.Join(\",\", ev.DisabledIds", eventsDataSource);
 
         // Those comments are what the guard protects.
         var commented = Directory

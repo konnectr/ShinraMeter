@@ -10,54 +10,106 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
 using System.Windows.Input;
+using System.Windows.Media.Imaging;
 using Tera.Game;
 using DataAction = Data.Actions.Action;
 
 namespace DamageMeter.UI.Windows
 {
     /// <summary>
-    /// One row of the "Combat notifications" list in the Events settings tab.
-    /// Wraps a data-driven combat event (resources/config/events/events-common.xml and
-    /// events-&lt;class&gt;.xml) with a readable label, a checkbox bound to its Active flag and a
-    /// Test button that replays the event's own balloon/sound so the user hears the real thing.
-    /// Only the opt-out flag is exposed here: content and triggers stay in the Events editor.
+    /// Sub-header of the "Combat notifications" list: "Common" or the player's class.
+    /// </summary>
+    public class CombatNotificationGroupVM
+    {
+        public CombatNotificationGroupVM(string title) { Title = title; }
+
+        public string Title { get; }
+    }
+
+    /// <summary>
+    /// One row of the "Combat notifications" list in the Events settings tab: a single abnormality
+    /// id, abnormality category or cooldown skill of a data-driven combat event
+    /// (resources/config/events/events-common.xml and events-&lt;class&gt;.xml).
+    /// <para>
+    /// Rows show the readable name and icon straight from the abnormality/skill databases (see
+    /// <see cref="GameNames"/>, which loads them before login too), with a dim second line naming the
+    /// trigger and the raw id. The checkbox switches this one id on or off through
+    /// <see cref="CombatEventToggle"/>, and Test replays the event's own balloon/sound so the user
+    /// hears the real thing. Content and triggers stay in the Events editor.
+    /// </para>
     /// </summary>
     public class CombatNotificationVM : TSPropertyChanged
     {
-        private const int MaxNamesInLabel = 3;
-
         private readonly Event _event;
         private readonly List<DataAction> _actions;
-        private readonly Action _onToggled;
-        private bool _isOn;
+        private readonly CombatEventToggle _toggle;
+        private readonly string _token;
+        private readonly int _abnormalityId;
 
-        public string Label { get; }
+        public string Name { get; }
+
+        /// <summary>Dim second line: trigger kind and the raw id, e.g. "Applied - ID 6001".</summary>
         public string Details { get; }
+
+        public string Tooltip { get; }
+        public BitmapImage Icon { get; }
         public bool CanTest => _actions.OfType<NotifyAction>().Any();
         public ICommand TestCommand { get; }
 
         public bool IsOn
         {
-            get => _isOn;
+            get => _toggle.IsEnabled(_token);
             set
             {
-                if (_isOn == value) { return; }
-                _isOn = value;
-                _event.Active = value;
-                NotifyPropertyChanged();
-                _onToggled?.Invoke();
+                if (_toggle.IsEnabled(_token) == value) { return; }
+                _toggle.Set(_token, value);
             }
         }
 
-        public CombatNotificationVM(Event ev, List<DataAction> actions, Action onToggled)
+        /// <param name="token">
+        /// The id as the events xml spells it, or null for an event that has no id at all. This is
+        /// what ends up in the disabled_ids attribute.
+        /// </param>
+        public CombatNotificationVM(Event ev, List<DataAction> actions, CombatEventToggle toggle, string token, int abnormalityId, string name, string typeLabel,
+            string iconName)
         {
             _event = ev;
             _actions = actions ?? new List<DataAction>();
-            _onToggled = onToggled;
-            _isOn = ev.Active;
-            Label = BuildLabel(ev);
-            Details = BuildDetails(ev);
+            _toggle = toggle;
+            _token = token;
+            _abnormalityId = abnormalityId;
+
+            Name = name;
+            Details = BuildDetails(typeLabel, token);
+            Tooltip = BuildTooltip(ev, name, Details);
+            Icon = LoadIcon(iconName);
             TestCommand = new RelayCommand(_ => Test());
+
+            _toggle.Changed += () => NotifyPropertyChanged(nameof(IsOn));
+        }
+
+        private static BitmapImage LoadIcon(string iconName)
+        {
+            // GetImage already answers the 1x1 empty bitmap for an unknown or missing icon.
+            try { return BasicTeraData.Instance.Icons?.GetImage(iconName ?? string.Empty); }
+            catch { return null; }
+        }
+
+        private static string BuildDetails(string typeLabel, string token)
+        {
+            if (string.IsNullOrEmpty(token)) { return typeLabel; }
+            return int.TryParse(token, NumberStyles.Integer, CultureInfo.InvariantCulture, out _)
+                ? $"{typeLabel}  ·  ID {token}"
+                : $"{typeLabel}  ·  {LP.CombatNotifyCategory}";
+        }
+
+        private static string BuildTooltip(Event ev, string name, string details)
+        {
+            var lines = new List<string> { name, details, $"{LP.CombatNotifyPriority}: {ev.Priority}" };
+            lines.Add(ev.InGame ? LP.CombatNotifyInGame : LP.CombatNotifyOutOfGame);
+            if (ev.OutOfCombat) { lines.Add(LP.CombatNotifyOutOfCombat); }
+            if (ev is AbnormalityEvent abnormality) { lines.Add($"{LP.CombatNotifyTarget}: {abnormality.Target}"); }
+            return string.Join("\n", lines.Where(x => !string.IsNullOrWhiteSpace(x)));
         }
 
         /// <summary>
@@ -70,7 +122,7 @@ namespace DamageMeter.UI.Windows
             var notifyAction = _actions.OfType<NotifyAction>().FirstOrDefault()?.Clone();
             if (notifyAction == null) { return; }
 
-            var replacements = BuildReplacements(_event);
+            var replacements = BuildReplacements();
 
             if (notifyAction.Balloon != null)
             {
@@ -78,14 +130,14 @@ namespace DamageMeter.UI.Windows
                 notifyAction.Balloon.BodyText = Substitute(notifyAction.Balloon.BodyText, replacements);
                 // The balloon keeps the event type it was parsed/edited with, which is what decides
                 // the popup colour when the event really fires.
-                notifyAction.Balloon.Icon = ResolveIcon(_event) ?? notifyAction.Balloon.Icon;
+                notifyAction.Balloon.Icon = ResolveIconName() ?? notifyAction.Balloon.Icon;
                 if (notifyAction.Balloon.DisplayTime < 500) { notifyAction.Balloon.DisplayTime = 3000; }
             }
             else
             {
-                notifyAction.Balloon = new Balloon(LP.CombatNotificationsSection, Label, 3000, EventTypeOf(_event))
+                notifyAction.Balloon = new Balloon(LP.CombatNotificationsSection, Name, 3000, EventTypeOf(_event))
                 {
-                    Icon = ResolveIcon(_event)
+                    Icon = ResolveIconName()
                 };
             }
 
@@ -108,29 +160,28 @@ namespace DamageMeter.UI.Windows
             return text;
         }
 
-        private static Dictionary<string, string> BuildReplacements(Event ev)
+        private Dictionary<string, string> BuildReplacements()
         {
-            var playerName = PlayerName();
             var replacements = new Dictionary<string, string>
             {
-                { "{player_name}", playerName },
+                { "{player_name}", PlayerName() },
                 { "{time_left}", "0" },
                 { "{boss_hp}", "100" },
                 { "{next_hp}", "90" },
                 { "{stack}", "1" },
             };
 
-            switch (ev)
+            switch (_event)
             {
                 case AbnormalityEvent abnormality:
-                    replacements["{abnormality_name}"] = FirstAbnormalityName(abnormality);
-                    if (abnormality.Ids.Count > 0)
+                    replacements["{abnormality_name}"] = Name;
+                    if (_abnormalityId > 0 && abnormality.Ids.TryGetValue(_abnormalityId, out var stack))
                     {
-                        replacements["{stack}"] = Math.Max(1, abnormality.Ids.First().Value).ToString(CultureInfo.InvariantCulture);
+                        replacements["{stack}"] = Math.Max(1, stack).ToString(CultureInfo.InvariantCulture);
                     }
                     break;
                 case CooldownEvent cooldown:
-                    replacements["{skill_name}"] = SkillName(cooldown.SkillId);
+                    replacements["{skill_name}"] = Name;
                     replacements["{skill_id}"] = cooldown.SkillId.ToString(CultureInfo.InvariantCulture);
                     break;
             }
@@ -160,53 +211,169 @@ namespace DamageMeter.UI.Windows
             };
         }
 
-        private static string ResolveIcon(Event ev)
+        private string ResolveIconName()
         {
-            switch (ev)
+            return _event switch
             {
-                case AbnormalityEvent abnormality when abnormality.Ids.Count > 0:
-                    return BasicTeraData.Instance.HotDotDatabase?.Get(abnormality.Ids.First().Key)?.EffectIcon;
-                case CooldownEvent cooldown:
-                    return ResolveSkill(cooldown.SkillId)?.IconName;
-                default:
-                    return null;
-            }
+                AbnormalityEvent when _abnormalityId > 0 => GameNames.AbnormalityIcon(_abnormalityId),
+                CooldownEvent cooldown => GameNames.SkillIcon(cooldown.SkillId, CombatNotificationRows.PlayerClassForNames()),
+                _ => null
+            };
+        }
+    }
+
+    /// <summary>
+    /// Shared by every row of one event, because the ids of an event are stored as one
+    /// <see cref="Event.Active"/> flag plus a set of ids that are off.
+    /// <para>
+    /// The rule both ways is: Active=false means every id is off and the disabled set is empty, so
+    /// Active=true always leaves at least one id on. Checking a row of an inactive event therefore
+    /// activates the event and turns its other ids off, and unchecking the last enabled row
+    /// deactivates the event instead of listing every id as disabled.
+    /// </para>
+    /// </summary>
+    public class CombatEventToggle
+    {
+        private readonly Event _event;
+        private readonly List<string> _tokens;
+        private readonly Action _onChanged;
+
+        public event Action Changed;
+
+        public CombatEventToggle(Event ev, IEnumerable<string> tokens, Action onChanged)
+        {
+            _event = ev;
+            _tokens = tokens?.ToList() ?? new List<string>();
+            _onChanged = onChanged;
         }
 
-        private static string BuildLabel(Event ev)
+        public bool IsEnabled(string token)
+        {
+            if (!_event.Active) { return false; }
+            return string.IsNullOrEmpty(token) || !_event.IsTokenDisabled(token);
+        }
+
+        public void Set(string token, bool enabled)
+        {
+            if (string.IsNullOrEmpty(token) || _tokens.Count == 0)
+            {
+                _event.Active = enabled;
+                _event.DisabledIds.Clear();
+            }
+            else if (enabled)
+            {
+                if (_event.Active) { _event.DisabledIds.Remove(token); }
+                else
+                {
+                    // Everything was off, so turning this one on must not drag the others back in.
+                    _event.Active = true;
+                    _event.DisabledIds.Clear();
+                    foreach (var other in _tokens.Where(x => !string.Equals(x, token, StringComparison.OrdinalIgnoreCase)))
+                    {
+                        _event.DisabledIds.Add(other);
+                    }
+                }
+            }
+            else
+            {
+                if (!_event.Active) { return; }
+                _event.DisabledIds.Add(token);
+                if (_tokens.All(_event.IsTokenDisabled))
+                {
+                    _event.Active = false;
+                    _event.DisabledIds.Clear();
+                }
+            }
+
+            Changed?.Invoke();
+            _onChanged?.Invoke();
+        }
+    }
+
+    /// <summary>
+    /// Turns the loaded event sets into the grouped, one-row-per-id list the Events tab shows.
+    /// </summary>
+    public static class CombatNotificationRows
+    {
+        /// <summary>
+        /// Class the skill names are looked up with: the logged in character when there is one,
+        /// otherwise the class whose events file is loaded (Common before login).
+        /// </summary>
+        public static PlayerClass PlayerClassForNames()
+        {
+            try
+            {
+                var meterUser = PacketProcessor.Instance?.EntityTracker?.MeterUser;
+                if (meterUser != null) { return meterUser.RaceGenderClass.Class; }
+            }
+            catch { /* the packet processor is not running yet */ }
+
+            return BasicTeraData.Instance.EventsData.CurrentClass;
+        }
+
+        /// <summary>One row per id of <paramref name="ev"/>, or a single row when it has none.</summary>
+        public static IEnumerable<CombatNotificationVM> Build(Event ev, List<DataAction> actions, Action onToggled)
         {
             switch (ev)
             {
                 case AbnormalityEvent abnormality:
-                    return $"{TriggerLabel(abnormality.Trigger)}: {AbnormalityNames(abnormality)}";
+                    return BuildAbnormalityRows(abnormality, actions, onToggled);
                 case CooldownEvent cooldown:
-                    var prefix = cooldown.OnlyResetted ? LP.CombatNotifyCooldownReset : LP.CombatNotifyCooldown;
-                    return $"{prefix}: {SkillName(cooldown.SkillId)}";
+                    return BuildCooldownRows(cooldown, actions, onToggled);
                 default:
-                    return ev.GetType().Name;
+                    return Enumerable.Empty<CombatNotificationVM>();
             }
         }
 
-        private static string BuildDetails(Event ev)
+        private static IEnumerable<CombatNotificationVM> BuildAbnormalityRows(AbnormalityEvent ev, List<DataAction> actions, Action onToggled)
         {
-            var lines = new List<string> { $"{LP.CombatNotifyPriority}: {ev.Priority}" };
-            lines.Add(ev.InGame ? LP.CombatNotifyInGame : LP.CombatNotifyOutOfGame);
-            if (ev.OutOfCombat) { lines.Add(LP.CombatNotifyOutOfCombat); }
+            var typeLabel = TriggerLabel(ev.Trigger);
+            var tokens = EventsData.AbnormalityTokens(ev).ToList();
+            var toggle = new CombatEventToggle(ev, tokens, onToggled);
 
-            if (ev is AbnormalityEvent abnormality)
+            if (tokens.Count == 0)
             {
-                lines.Add($"{LP.CombatNotifyTarget}: {abnormality.Target}");
-                var ids = abnormality.Ids.Keys.Select(x => x.ToString(CultureInfo.InvariantCulture))
-                    .Concat(abnormality.Types.Select(x => x.ToString()))
-                    .ToList();
-                if (ids.Count > 0) { lines.Add("ID: " + string.Join(", ", ids)); }
-            }
-            else if (ev is CooldownEvent cooldown && cooldown.SkillId > 0)
-            {
-                lines.Add($"ID: {cooldown.SkillId}");
+                yield return new CombatNotificationVM(ev, actions, toggle, null, 0, LP.CombatNotifyNoAbnormality, typeLabel, null);
+                yield break;
             }
 
-            return string.Join("\n", lines);
+            foreach (var id in ev.Ids.Keys)
+            {
+                var token = id.ToString(CultureInfo.InvariantCulture);
+                yield return new CombatNotificationVM(ev, actions, toggle, token, id, AbnormalityName(ev, id), typeLabel, GameNames.AbnormalityIcon(id));
+            }
+
+            foreach (var type in ev.Types)
+            {
+                yield return new CombatNotificationVM(ev, actions, toggle, type.ToString(), 0, type.ToString(), typeLabel, null);
+            }
+        }
+
+        private static IEnumerable<CombatNotificationVM> BuildCooldownRows(CooldownEvent ev, List<DataAction> actions, Action onToggled)
+        {
+            var typeLabel = ev.OnlyResetted ? LP.CombatNotifyCooldownReset : LP.CombatNotifyCooldown;
+            var token = ev.SkillId > 0 ? ev.SkillId.ToString(CultureInfo.InvariantCulture) : null;
+            var toggle = new CombatEventToggle(ev, token == null ? Enumerable.Empty<string>() : new[] { token }, onToggled);
+            var playerClass = PlayerClassForNames();
+            var name = ev.SkillId > 0
+                ? GameNames.SkillName(ev.SkillId, playerClass) ?? Fallback(ev, ev.SkillId.ToString(CultureInfo.InvariantCulture))
+                : LP.CombatNotifyAnySkill;
+
+            yield return new CombatNotificationVM(ev, actions, toggle, token, 0, name, typeLabel, GameNames.SkillIcon(ev.SkillId, playerClass));
+        }
+
+        /// <summary>
+        /// Database name first, then the xml comment that names the event in the shipped files, then
+        /// the raw id. The id is on the row's second line either way, so nothing is lost.
+        /// </summary>
+        private static string AbnormalityName(AbnormalityEvent ev, int id)
+        {
+            return GameNames.AbnormalityName(id) ?? Fallback(ev, id.ToString(CultureInfo.InvariantCulture));
+        }
+
+        private static string Fallback(Event ev, string id)
+        {
+            return string.IsNullOrWhiteSpace(ev.Comment) ? id : ev.Comment;
         }
 
         private static string TriggerLabel(AbnormalityTriggerType trigger)
@@ -218,57 +385,6 @@ namespace DamageMeter.UI.Windows
                 AbnormalityTriggerType.Ending => LP.CombatNotifyExpiring,
                 _ => LP.CombatNotifyMissing
             };
-        }
-
-        private static string AbnormalityNames(AbnormalityEvent abnormality)
-        {
-            var names = abnormality.Ids.Keys
-                .Select(AbnormalityName)
-                .Concat(abnormality.Types.Select(x => x.ToString()))
-                .Distinct()
-                .ToList();
-
-            if (names.Count == 0) { return LP.CombatNotifyNoAbnormality; }
-            return names.Count <= MaxNamesInLabel
-                ? string.Join(", ", names)
-                : string.Join(", ", names.Take(MaxNamesInLabel)) + $" (+{names.Count - MaxNamesInLabel})";
-        }
-
-        private static string FirstAbnormalityName(AbnormalityEvent abnormality)
-        {
-            return abnormality.Ids.Count > 0
-                ? AbnormalityName(abnormality.Ids.First().Key)
-                : LP.CombatNotifyNoAbnormality;
-        }
-
-        private static string AbnormalityName(int id)
-        {
-            var name = BasicTeraData.Instance.HotDotDatabase?.Get(id)?.Name;
-            return string.IsNullOrWhiteSpace(name) ? id.ToString(CultureInfo.InvariantCulture) : name;
-        }
-
-        private static string SkillName(int skillId)
-        {
-            if (skillId <= 0) { return LP.CombatNotifyAnySkill; }
-            var name = ResolveSkill(skillId)?.Name;
-            return string.IsNullOrWhiteSpace(name) ? skillId.ToString(CultureInfo.InvariantCulture) : name;
-        }
-
-        private static Tera.Game.Skill ResolveSkill(int skillId)
-        {
-            if (skillId <= 0) { return null; }
-            var database = BasicTeraData.Instance.SkillDatabase;
-            if (database == null) { return null; }
-
-            try
-            {
-                var meterUser = PacketProcessor.Instance?.EntityTracker?.MeterUser;
-                if (meterUser != null) { return database.GetOrNull(meterUser, skillId); }
-            }
-            catch { /* the packet processor is not running yet */ }
-
-            var playerClass = BasicTeraData.Instance.EventsData.CurrentClass;
-            return database.GetOrNull(new RaceGenderClass(Race.Common, Gender.Common, playerClass), skillId);
         }
     }
 }

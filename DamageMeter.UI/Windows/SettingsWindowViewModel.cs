@@ -1098,11 +1098,14 @@ namespace DamageMeter.UI.Windows
         public ToastViewModel ToastData { get; }
 
         /// <summary>
-        /// One row per combat event currently loaded (events-common.xml + events-&lt;class&gt;.xml),
-        /// backing the "Combat notifications" opt-out list in the Events tab.
+        /// The "Combat notifications" opt-out list in the Events tab: one
+        /// <see cref="CombatNotificationGroupVM"/> sub-header per event file (common, then the
+        /// player's class) followed by one <see cref="CombatNotificationVM"/> row per abnormality or
+        /// skill id of the events currently loaded (events-common.xml + events-&lt;class&gt;.xml).
+        /// Mixed on purpose: the ItemsControl picks a template per item type.
         /// </summary>
-        public SynchronizedObservableCollection<CombatNotificationVM> CombatNotifications { get; } =
-            new SynchronizedObservableCollection<CombatNotificationVM>();
+        public SynchronizedObservableCollection<object> CombatNotifications { get; } =
+            new SynchronizedObservableCollection<object>();
 
         /// <summary>True once a combat toggle was flipped, so the settings window only rewrites the
         /// events files when something actually changed.</summary>
@@ -1121,28 +1124,60 @@ namespace DamageMeter.UI.Windows
         public void RefreshCombatNotifications()
         {
             var eventsData = BasicTeraData.Instance.EventsData;
-            var rows = new List<CombatNotificationVM>();
+            var items = new List<object>();
 
-            foreach (var source in new[] { eventsData.EventsCommon, eventsData.EventsClass })
-            {
-                if (source == null) { continue; }
-                // EventsClass is swapped wholesale on login, so snapshot before enumerating.
-                List<KeyValuePair<Data.Events.Event, List<Data.Actions.Action>>> snapshot;
-                try { snapshot = source.ToList(); }
-                catch (InvalidOperationException) { continue; }
+            AddCombatNotificationGroup(items, LP.CombatNotificationsGroupCommon, eventsData.EventsCommon);
+            AddCombatNotificationGroup(items, ClassDisplayName(eventsData.CurrentClass), eventsData.EventsClass);
 
-                foreach (var entry in snapshot)
-                {
-                    // The AFK template is already covered by the per-kind checkboxes above.
-                    if (entry.Key is CommonAFKEvent) { continue; }
-                    rows.Add(new CombatNotificationVM(entry.Key, entry.Value, OnCombatNotificationToggled));
-                }
-            }
-
-            CombatNotifications.ReplaceWith(rows.OrderBy(x => x.Label, StringComparer.CurrentCultureIgnoreCase));
+            CombatNotifications.ReplaceWith(items);
             NotifyPropertyChanged(nameof(CombatNotifications));
             NotifyPropertyChanged(nameof(ClassEventsHintVisibility));
             NotifyPropertyChanged(nameof(NoCombatNotificationsVisibility));
+        }
+
+        private void AddCombatNotificationGroup(List<object> items, string title, Dictionary<Data.Events.Event, List<Data.Actions.Action>> source)
+        {
+            if (source == null) { return; }
+
+            // EventsClass is swapped wholesale on login, so snapshot before enumerating.
+            List<KeyValuePair<Data.Events.Event, List<Data.Actions.Action>>> snapshot;
+            try { snapshot = source.ToList(); }
+            catch (InvalidOperationException) { return; }
+
+            // An event is one alert the user thinks about as a whole ("Food", "Kaia's Shield"), so its
+            // ids stay together instead of being scattered through one flat alphabetical list; the
+            // events themselves are ordered by their first id, and the ids inside one by name.
+            var events = new List<List<CombatNotificationVM>>();
+            foreach (var entry in snapshot)
+            {
+                // The AFK template is already covered by the per-kind checkboxes above.
+                if (entry.Key is CommonAFKEvent) { continue; }
+                var rows = CombatNotificationRows.Build(entry.Key, entry.Value, OnCombatNotificationToggled)
+                    .OrderBy(x => x.Name, StringComparer.CurrentCultureIgnoreCase)
+                    .ToList();
+                if (rows.Count > 0) { events.Add(rows); }
+            }
+
+            if (events.Count == 0) { return; }
+
+            items.Add(new CombatNotificationGroupVM(title));
+            foreach (var rows in events.OrderBy(x => x[0].Name, StringComparer.CurrentCultureIgnoreCase))
+            {
+                items.AddRange(rows);
+            }
+        }
+
+        /// <summary>Localized class name when there is one, otherwise the enum name.</summary>
+        private static string ClassDisplayName(PlayerClass playerClass)
+        {
+            try
+            {
+                var localized = LP.ResourceManager.GetString(playerClass.ToString(), LP.Culture);
+                if (!string.IsNullOrWhiteSpace(localized)) { return localized; }
+            }
+            catch { /* no resource for this class */ }
+
+            return playerClass.ToString();
         }
 
         /// <summary>
@@ -1303,7 +1338,10 @@ namespace DamageMeter.UI.Windows
                 new MockPlayerViewModel("Priest.Kek", PlayerClass.Mystic)
             };
 
-            RefreshCombatNotifications();
+            // The combat rows are (re)built every time the window is shown, so there is nothing to do
+            // here beyond warming the name databases on a background thread: reading them costs a few
+            // MB of tsv and this constructor runs while the meter is still starting up.
+            GameNames.Preload();
         }
 
 

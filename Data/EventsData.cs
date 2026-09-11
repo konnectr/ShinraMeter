@@ -46,8 +46,8 @@ namespace Data
         /// </summary>
         private readonly object _sync = new object();
 
-        /// <summary>Active flag of every class event as it was read from events-&lt;class&gt;.xml.</summary>
-        private Dictionary<Event, bool> _classActiveOnDisk = new Dictionary<Event, bool>();
+        /// <summary>Toggle state (Active + disabled ids) of every class event as it was read from events-&lt;class&gt;.xml.</summary>
+        private Dictionary<Event, string> _classStateOnDisk = new Dictionary<Event, string>();
 
         public EventsData(BasicTeraData basicData)
         {
@@ -139,7 +139,7 @@ namespace Data
             {
                 EventsClass = classEvents;
                 CurrentClass = playerClass;
-                _classActiveOnDisk = SnapshotActive(classEvents);
+                _classStateOnDisk = SnapshotState(classEvents);
                 RefreshActiveEventsCore();
             }
         }
@@ -188,8 +188,14 @@ namespace Data
             {
                 if (!e.Key.Active) { continue; }
                 if (playerClass != PlayerClass.Common && e.Key.IgnoreClasses.Contains(playerClass)) { continue; }
-                target.Events.Add(e.Key, e.Value);
-                var evAbnormalities = e.Key as AbnormalityEvent;
+
+                // Ids the user unchecked one by one are dropped here, so nothing downstream of this
+                // method (trigger logic, notify content) has to know about them.
+                var published = WithoutDisabledIds(e.Key);
+                if (published == null) { continue; }
+
+                target.Events.Add(published, e.Value);
+                var evAbnormalities = published as AbnormalityEvent;
                 if (evAbnormalities != null)
                 {
                     if (evAbnormalities.Trigger == AbnormalityTriggerType.MissingDuringFight || evAbnormalities.Trigger == AbnormalityTriggerType.Ending)
@@ -199,12 +205,46 @@ namespace Data
                     else { target.AddedRemovedAbnormalities.Add(evAbnormalities, e.Value); }
                 }
 
-                var evCooldown = e.Key as CooldownEvent;
-                if (evCooldown != null) { target.Cooldown.Add(e.Key, e.Value); }
+                var evCooldown = published as CooldownEvent;
+                if (evCooldown != null) { target.Cooldown.Add(published, e.Value); }
 
-                var evAFK = e.Key as CommonAFKEvent;
-                if (evAFK != null) { target.AFK = new Tuple<Event, List<Action>>(e.Key, e.Value); }
+                var evAFK = published as CommonAFKEvent;
+                if (evAFK != null) { target.AFK = new Tuple<Event, List<Action>>(published, e.Value); }
             }
+        }
+
+        /// <summary>
+        /// The event instance the notify processor should see, given the ids the user unchecked
+        /// individually in the settings window.
+        /// <list type="bullet">
+        /// <item>Nothing unchecked: the very same instance, so identity and per-event state such as
+        /// NextChecks are untouched - this is the normal case.</item>
+        /// <item>Some ids unchecked: a shallow copy carrying only the enabled ids. It shares the
+        /// NextChecks dictionary with the original, so rewarn timers keep ticking across a refresh.</item>
+        /// <item>Every id unchecked: null, i.e. the same as Active=false. The settings window keeps
+        /// Active and the disabled set consistent so this should not happen, but a hand written file
+        /// can still say it.</item>
+        /// </list>
+        /// </summary>
+        public static Event WithoutDisabledIds(Event ev)
+        {
+            if (ev.DisabledIds.Count == 0) { return ev; }
+
+            if (ev is CooldownEvent cooldown) { return cooldown.IsIdDisabled(cooldown.SkillId) ? null : cooldown; }
+
+            if (ev is AbnormalityEvent abnormality)
+            {
+                var ids = abnormality.Ids.Where(x => !abnormality.IsIdDisabled(x.Key)).ToDictionary(x => x.Key, x => x.Value);
+                var types = abnormality.Types.Where(x => !abnormality.IsTokenDisabled(x.ToString())).ToList();
+                if (ids.Count == 0 && types.Count == 0) { return null; }
+                if (ids.Count == abnormality.Ids.Count && types.Count == abnormality.Types.Count) { return abnormality; }
+
+                return new AbnormalityEvent(abnormality.InGame, abnormality.Active, abnormality.Priority, abnormality.AreaBossBlackList, ids, types,
+                    abnormality.Target, abnormality.Trigger, abnormality.RemainingSecondBeforeTrigger, abnormality.RewarnTimeoutSeconds, abnormality.OutOfCombat,
+                    abnormality.IgnoreClasses) { NextChecks = abnormality.NextChecks, Comment = abnormality.Comment };
+            }
+
+            return ev;
         }
 
         public void Save()
@@ -212,38 +252,42 @@ namespace Data
             lock (_sync)
             {
                 SaveEvents(EventsCommon, "events-common.xml");
-                // Class events are editable too (their Active flags back the "Combat notifications"
-                // checkboxes), so they have to round-trip to their own file or the toggles would be
-                // silently reverted by the next Load().
-                // Only when a flag actually differs from what was loaded, though: serializing drops
-                // the comments that name each event in the shipped events-<class>.xml files, and
-                // Save() runs on every exit even when nothing in there was touched.
-                if (CurrentClass != PlayerClass.Common && EventsClass != null && EventsClass.Count > 0 && ClassActiveFlagsChanged())
+                // Class events are editable too (their Active flag and their per-id checkboxes back the
+                // "Combat notifications" list), so they have to round-trip to their own file or the
+                // toggles would be silently reverted by the next Load().
+                // Only when something actually differs from what was loaded, though: Save() runs on
+                // every exit even when nothing in there was touched.
+                if (CurrentClass != PlayerClass.Common && EventsClass != null && EventsClass.Count > 0 && ClassToggleStateChanged())
                 {
                     SaveEvents(EventsClass, "events-" + CurrentClass.ToString().ToLowerInvariant() + ".xml");
-                    _classActiveOnDisk = SnapshotActive(EventsClass);
+                    _classStateOnDisk = SnapshotState(EventsClass);
                 }
             }
         }
 
-        private static Dictionary<Event, bool> SnapshotActive(Dictionary<Event, List<Action>> events)
+        private static Dictionary<Event, string> SnapshotState(Dictionary<Event, List<Action>> events)
         {
-            var snapshot = new Dictionary<Event, bool>();
-            foreach (var e in events) { snapshot[e.Key] = e.Key.Active; }
+            var snapshot = new Dictionary<Event, string>();
+            foreach (var e in events) { snapshot[e.Key] = ToggleStateKey(e.Key); }
             return snapshot;
         }
 
-        /// <summary>
-        /// True when a class event was enabled or disabled since events-&lt;class&gt;.xml was read.
-        /// Active is the only thing this app changes on class events, so nothing else can make the
-        /// file stale.
-        /// </summary>
-        private bool ClassActiveFlagsChanged()
+        /// <summary>Active flag plus the unchecked ids: everything this app changes on a class event.</summary>
+        private static string ToggleStateKey(Event ev)
         {
-            if (_classActiveOnDisk.Count != EventsClass.Count) { return true; }
+            return ev.Active + "|" + string.Join(",", ev.DisabledIds.OrderBy(x => x, StringComparer.Ordinal));
+        }
+
+        /// <summary>
+        /// True when a class event was enabled, disabled, or had one of its ids unchecked since
+        /// events-&lt;class&gt;.xml was read.
+        /// </summary>
+        private bool ClassToggleStateChanged()
+        {
+            if (_classStateOnDisk.Count != EventsClass.Count) { return true; }
             foreach (var e in EventsClass)
             {
-                if (!_classActiveOnDisk.TryGetValue(e.Key, out var wasActive) || wasActive != e.Key.Active) { return true; }
+                if (!_classStateOnDisk.TryGetValue(e.Key, out var wasState) || wasState != ToggleStateKey(e.Key)) { return true; }
             }
             return false;
         }
@@ -260,6 +304,10 @@ namespace Data
 
             foreach (var eventActions in events)
             {
+                // The comment is the only human readable name some events have, and the combat
+                // notification list falls back to it, so write it back instead of dropping it.
+                var comment = SerializeComment(eventActions.Key.Comment);
+                if (comment != null) { root.Add(comment); }
                 root.Add(SerializeEvent(eventActions.Key, eventActions.Value));
             }
 
@@ -307,13 +355,15 @@ namespace Data
 
             if (ev is CooldownEvent cooldown)
             {
-                return new XElement("cooldown",
+                var cooldownElement = new XElement("cooldown",
                     new XAttribute("active", cooldown.Active),
                     new XAttribute("ingame", cooldown.InGame),
                     new XAttribute("priority", cooldown.Priority),
                     new XAttribute("skill_id", cooldown.SkillId),
-                    new XAttribute("only_resetted", cooldown.OnlyResetted),
-                    SerializeActions(actions));
+                    new XAttribute("only_resetted", cooldown.OnlyResetted));
+                AddDisabledIds(cooldownElement, cooldown, new[] { cooldown.SkillId.ToString(CultureInfo.InvariantCulture) });
+                cooldownElement.Add(SerializeActions(actions));
+                return cooldownElement;
             }
 
             if (ev is AbnormalityEvent abnormality)
@@ -337,6 +387,8 @@ namespace Data
                     element.Add(new XAttribute("rewarn_timeout_seconds", abnormality.RewarnTimeoutSeconds));
                 }
 
+                AddDisabledIds(element, abnormality, AbnormalityTokens(abnormality));
+
                 element.Add(SerializeAreaBossBlacklist(abnormality.AreaBossBlackList));
                 element.Add(SerializeAbnormalities(abnormality));
                 element.Add(SerializeActions(actions));
@@ -344,6 +396,39 @@ namespace Data
             }
 
             throw new ArgumentOutOfRangeException(nameof(ev), ev.GetType().Name, "Unsupported event type");
+        }
+
+        /// <summary>Every id/category of an abnormality event, spelled the way the xml spells it.</summary>
+        public static IEnumerable<string> AbnormalityTokens(AbnormalityEvent abnormality)
+        {
+            return abnormality.Ids.Keys.Select(x => x.ToString(CultureInfo.InvariantCulture))
+                .Concat(abnormality.Types.Select(x => x.ToString()));
+        }
+
+        private static void AddDisabledIds(XElement element, Event ev, IEnumerable<string> knownTokens)
+        {
+            var value = SerializeDisabledIds(ev, knownTokens);
+            if (value != null) { element.SetAttributeValue("disabled_ids", value); }
+        }
+
+        /// <summary>
+        /// The disabled_ids attribute value for an event, or null when there is nothing to write:
+        /// the ids the user unchecked individually, pruned to the ids the event still has (the events
+        /// editor can delete one) and ordered like the event's own ids so the file stays stable.
+        /// </summary>
+        public static string SerializeDisabledIds(Event ev, IEnumerable<string> knownTokens)
+        {
+            if (ev.DisabledIds.Count == 0) { return null; }
+            var kept = knownTokens.Where(ev.IsTokenDisabled).ToList();
+            return kept.Count == 0 ? null : string.Join(",", kept);
+        }
+
+        /// <summary>XComment rejects "--" and a trailing "-", so keep the text but not those.</summary>
+        private static XComment SerializeComment(string comment)
+        {
+            if (string.IsNullOrWhiteSpace(comment)) { return null; }
+            var text = comment.Trim().Replace("--", "-");
+            return new XComment(" " + text + " ");
         }
 
         private static XElement SerializeAreaBossBlacklist(List<BlackListItem> blacklist)
@@ -439,7 +524,7 @@ namespace Data
             if (commonAfk == null) { return; }
 
             var active = bool.Parse(commonAfk.Attribute("active")?.Value ?? default_active);
-            var ev = new CommonAFKEvent(active);
+            var ev = new CommonAFKEvent(active) { Comment = PrecedingComment(commonAfk) };
             events.Add(ev, new List<Action>());
             ParseActions(commonAfk, events, ev, EventType.AFK);
         }
@@ -519,6 +604,32 @@ namespace Data
             return areaBossBlacklist;
         }
 
+        /// <summary>
+        /// Reads disabled_ids="70221,70211": the ids of this event the user unchecked one by one in
+        /// the combat notification list. Unknown or malformed entries are simply kept as written and
+        /// matched by string, so a hand edited file never loses anything.
+        /// </summary>
+        public static void ParseDisabledIds(Event ev, string value)
+        {
+            if (string.IsNullOrWhiteSpace(value)) { return; }
+            foreach (var token in value.Split(','))
+            {
+                var trimmed = token.Trim();
+                if (trimmed.Length > 0) { ev.DisabledIds.Add(trimmed); }
+            }
+        }
+
+        /// <summary>The xml comment right above an event, which is how the shipped files name them.</summary>
+        private static string PrecedingComment(XElement element)
+        {
+            for (var node = element.PreviousNode; node != null; node = node.PreviousNode)
+            {
+                if (node is XComment comment) { return comment.Value.Trim(); }
+                if (node is XElement) { return null; }
+            }
+            return null;
+        }
+
         private List<PlayerClass> ParseIgnoreClasses(string str)
         {
             var res = new List<PlayerClass>();
@@ -544,7 +655,8 @@ namespace Data
                 var ingame = bool.Parse(abnormality.Attribute("ingame")?.Value ?? "true");
                 var priority = int.Parse(abnormality.Attribute("priority")?.Value ?? default_priority);
                 ParseAreaBossBlackList(abnormality);
-                var cooldownEvent = new CooldownEvent(ingame, active, priority, skillId, onlyResetted);
+                var cooldownEvent = new CooldownEvent(ingame, active, priority, skillId, onlyResetted) { Comment = PrecedingComment(abnormality) };
+                ParseDisabledIds(cooldownEvent, abnormality.Attribute("disabled_ids")?.Value);
                 events.Add(cooldownEvent, new List<Action>());
                 ParseActions(abnormality, events, cooldownEvent, EventType.Cooldown);
             }
@@ -594,7 +706,8 @@ namespace Data
                 }
                 var blacklist = ParseAreaBossBlackList(abnormality);
                 var abnormalityEvent = new AbnormalityEvent(ingame, active, priority, blacklist.Any() ? blacklist : default_blacklist, ids, types, target, trigger,
-                    remainingSecondsBeforeTrigger, rewarnTimeoutSeconds, outOfCombat, ignoreClasses);
+                    remainingSecondsBeforeTrigger, rewarnTimeoutSeconds, outOfCombat, ignoreClasses) { Comment = PrecedingComment(abnormality) };
+                ParseDisabledIds(abnormalityEvent, abnormality.Attribute("disabled_ids")?.Value);
                 events.Add(abnormalityEvent, new List<Action>());
                 var t = trigger == AbnormalityTriggerType.MissingDuringFight ? EventType.MissingAb : EventType.AddRemoveAb;
                 ParseActions(abnormality, events, abnormalityEvent, t);

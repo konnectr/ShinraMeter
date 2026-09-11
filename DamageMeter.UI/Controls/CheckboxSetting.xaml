@@ -75,7 +75,15 @@
                                 <Setter Property="BorderBrush" TargetName="checkBoxBorder" Value="SlateGray" />
                             </Trigger>
                             <Trigger Property="IsChecked" Value="true">
-                                <!--<Setter Property="Opacity" TargetName="optionMark" Value="1" />-->
+                                <!-- The check mark used to be made visible by the EnterActions
+                                     storyboard below only. Those run on a false -> true transition,
+                                     which never happens when the control is built already checked:
+                                     inside an ItemsControl DataTemplate the row's DataContext is set
+                                     before the template is applied, so IsChecked starts out true and
+                                     the mark stayed at Opacity 0, i.e. the checkbox looked missing.
+                                     The setter gives the checked state a value of its own; while the
+                                     storyboard runs it still wins, so toggling looks the same. -->
+                                <Setter Property="Opacity" TargetName="optionMark" Value="1" />
                                 <Setter Property="Opacity" TargetName="indeterminateMark" Value="0" />
                                 <Setter Property="Fill" TargetName="base"
                                         Value="{Binding ElementName=optionMark, Path=Fill}" />
@@ -152,6 +160,7 @@
                    VerticalAlignment="Center"
                    Padding="0"
                    TextAlignment="Left"
+                   TextTrimming="CharacterEllipsis"
                    Opacity=".9" >
             <TextBlock.Style>
                 <Style BasedOn="{StaticResource DefaultTextStyle}" TargetType="TextBlock">

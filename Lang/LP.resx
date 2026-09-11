@@ -994,4 +994,10 @@ Reset and paused until map change or relog.</value>
   <data name="CombatNotifyTestPlayer" xml:space="preserve">
     <value>You</value>
   </data>
+  <data name="CombatNotificationsGroupCommon" xml:space="preserve">
+    <value>Common</value>
+  </data>
+  <data name="CombatNotifyCategory" xml:space="preserve">
+    <value>Effect category</value>
+  </data>
 </root>
